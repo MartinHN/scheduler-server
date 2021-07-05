@@ -14,8 +14,11 @@ const app = express();
 app.use(cors())
 app.use(express.json())
 
-if(!fs.existsSync(conf.groupFolder))
-  fs.mkdirSync(conf.groupFolder)
+if(!fs.existsSync(conf.zonesFolder))
+  fs.mkdirSync(conf.zonesFolder)
+
+if(!fs.existsSync(conf.groupFile))
+  fs.writeFileSync(conf.groupFile,'{}',{ encoding: 'utf-8' })
 
 export function startServer(){
   const httpProto = conf.usehttps?https:http
@@ -29,49 +32,79 @@ app.use(express.static("../view-dist", {
   etag: false
 }))
 
-app.get('/zones',(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.zonesFile);
-  readable.pipe(res);
-})
 
-
-app.post('/zones',async (req,res)=>{
-  await fs.writeFile(conf.zonesFile, JSON.stringify(req.body,null,2), (err) => {
-    if (err) throw err;
-    console.log('The file has been saved!',req.body);
-  })
-  res.send()
-})
-
-
-app.get('/group/:n',(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.groupFolder+"/"+req.params.n);
-  readable.pipe(res);
-  
-})
-
-app.post('/group/:n',async (req,res)=>{
-  console.log("posted")
-  let fn = req.params.n
+function getFileNameFromQ(req){
+  let fn = req.query.n
   if(Array.isArray(fn))fn=fn[0]
   if(!(fn as string).endsWith(".json")){
     fn = fn+".json"
   }
-  console.log("creating group",fn)
-  
-  await fs.writeFile(conf.groupFolder+"/"+fn, JSON.stringify(req.body,null,2), (err) => {
+  return conf.zonesFolder+"/"+fn
+}
+app.get('/groups',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  var readable = fs.createReadStream(conf.groupFile);
+  readable.pipe(res);
+})
+
+
+app.post('/groups',async (req,res)=>{
+  await fs.writeFile(conf.groupFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     console.log('The file has been saved!',req.body);
   })
   res.send()
 })
 
-app.get('/groups',(req,res)=>{
-  console.log("listing group dir")
+app.get('/zoneFile',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  var readable = fs.createReadStream(conf.zoneFile);
+  readable.pipe(res);
+})
+
+
+app.post('/zoneFile',async (req,res)=>{
+  await fs.writeFile(conf.zoneFile, JSON.stringify(req.body,null,2), (err) => {
+    if (err) throw err;
+    console.log('The file has been saved!',req.body);
+  })
+  res.send()
+})
+
+
+app.get('/zones',(req,res)=>{
+  console.log("get zone")
+  const fn =getFileNameFromQ(req)
+  res.setHeader('Content-Type', 'application/json');
+  var readable = fs.createReadStream(fn);
+  readable.pipe(res);
+  
+})
+
+app.delete('/zones',(req,res)=>{
+  console.log("delete zone")
+  const fn =getFileNameFromQ(req)
+  if(fs.existsSync(fn)){
+    fs.unlinkSync(fn);
+  }
+})
+
+app.post('/zones',async (req,res)=>{
+  console.log("post zone")
+ const fn =getFileNameFromQ(req)
+  console.log("creating zone",fn)
+  
+  await fs.writeFile(fn, JSON.stringify(req.body,null,2), (err) => {
+    if (err) throw err;
+    console.log('The file has been saved!',req.body);
+  })
+  res.send()
+})
+
+app.get('/zoneNames',(req,res)=>{
+  console.log("listing zone dir",conf.zonesFolder)
   const o = new Array<string>()
-  fs.readdir(conf.groupFolder, function (err, files) {
+  fs.readdir(conf.zonesFolder, function (err, files) {
     //handling error
     if (err) {
       return console.log('Unable to scan directory: ' + err);
@@ -82,7 +115,7 @@ app.get('/groups',(req,res)=>{
       if(file.endsWith('.json'))
       o.push(file)
     });
+    res.json(o);
   });
-  res.json(o);
   
 })

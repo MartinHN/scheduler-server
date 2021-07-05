@@ -7,11 +7,13 @@ let scheduleZones:any = {default:{}}
 let isRunning = false;
 let runCB = undefined
 
-export function startSchedule(cB){
+export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-    reloadFile('init');
-    fs.watch(conf.zonesFile, { encoding: 'utf-8' }, reloadFile);
+    if(!fs.existsSync(conf.zoneFile))
+        fs.writeFileSync(conf.zoneFile,'{}',{ encoding: 'utf-8' })
+    reloadFile('init')
+    fs.watch(conf.zoneFile, { encoding: 'utf-8' }, reloadFile);
 
 }
 
@@ -90,13 +92,22 @@ function applyNewSchedule(o:any){
     checkIfShouldBeActive();
 }
 
-async function reloadFile(hint?:string){
+ function reloadFile(hint?:string){
     
     console.log(hint || 'watch' , 'load json file');
-    fs.readFile(conf.zonesFile,(err,data)=>{
+    fs.readFile(conf.zoneFile,(err,data)=>{
         if(err) throw err
-        const json = JSON.parse(data.toString())
-        applyNewSchedule(json);
+        try{
+            console.log('loading current zone')
+            const json = JSON.parse(data.toString())
+            applyNewSchedule(json);
+        }
+        catch{
+            console.error("corrupted file")
+            fs.writeFileSync(conf.zoneFile,'{}',{ encoding: 'utf-8' })
+            reloadFile('default');
+            
+        }
     })
     
 }
