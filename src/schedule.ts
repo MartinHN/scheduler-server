@@ -11,7 +11,7 @@ export function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
     reloadFile('init');
-    fs.watch(conf.filePath, { encoding: 'utf-8' }, reloadFile);
+    fs.watch(conf.zonesFile, { encoding: 'utf-8' }, reloadFile);
 
 }
 
@@ -93,7 +93,7 @@ function applyNewSchedule(o:any){
 async function reloadFile(hint?:string){
     
     console.log(hint || 'watch' , 'load json file');
-    fs.readFile(conf.filePath,(err,data)=>{
+    fs.readFile(conf.zonesFile,(err,data)=>{
         if(err) throw err
         const json = JSON.parse(data.toString())
         applyNewSchedule(json);
