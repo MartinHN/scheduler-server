@@ -103,3 +103,11 @@ app.get("/rssi",(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
   res.json({value:sys.getRSSI()});
 })
+
+
+import audioPlayer from './modules/AudioPlayer'
+
+app.post("/go",(req,res)=>{
+  audioPlayer.go();
+res.send()
+})

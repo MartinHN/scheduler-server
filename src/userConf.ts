@@ -1,8 +1,7 @@
 import path from 'path'
 import { execSync, execFileSync } from "child_process"
 import {readFileSync, writeFileSync} from 'fs'
-const proc =  execSync("uname -a").toString()
-const isPi = proc.includes("armv7")
+import {isPi} from './sysUtils'
 export const thisPath = isPi?"/home/pi/raspestrio/server":"/home/tinmar/Dev/raspestrio/server" 
 const confBasePath=thisPath+"/public/data"
 const defaultConfFileName = 'app.conf'

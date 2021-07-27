@@ -3,6 +3,9 @@ import { execSync, execFileSync } from "child_process"
 import { getConfigFileParsingDiagnostics } from 'typescript';
 import * as dbg from './dbg'
 
+const proc =  execSync("uname -a").toString()
+export const isPi = proc.includes("armv")
+
 export function getHostName(){
     return fs.readFileSync("/etc/hostname").toString().trim();  
 }
@@ -29,5 +32,8 @@ export function getRSSI(){
 
 
 export function reboot(){
-    execSync('sudo reboot')
+    if(isPi)
+       execSync('sudo reboot')
+    else
+       dbg.warn("should reboot")
 }
