@@ -14,8 +14,8 @@ const app = express();
 app.use(cors())
 app.use(express.json())
 
-if(!fs.existsSync(conf.zonesFolder))
-  fs.mkdirSync(conf.zonesFolder)
+if(!fs.existsSync(conf.agendasFolder))
+  fs.mkdirSync(conf.agendasFolder)
 
 if(!fs.existsSync(conf.groupFile))
   fs.writeFileSync(conf.groupFile,'{}',{ encoding: 'utf-8' })
@@ -32,6 +32,10 @@ app.use(express.static("../view-dist", {
   etag: false
 }))
 
+app.use(express.static("./public/data", {
+  etag: false
+}))
+
 
 function getFileNameFromQ(req){
   let fn = req.query.n
@@ -39,8 +43,9 @@ function getFileNameFromQ(req){
   if(!(fn as string).endsWith(".json")){
     fn = fn+".json"
   }
-  return conf.zonesFolder+"/"+fn
+  return conf.agendasFolder+"/"+fn
 }
+
 app.get('/groups',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(conf.groupFile);
@@ -56,24 +61,10 @@ app.post('/groups',async (req,res)=>{
   res.send()
 })
 
-app.get('/zoneFile',(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.zoneFile);
-  readable.pipe(res);
-})
 
 
-app.post('/zoneFile',async (req,res)=>{
-  await fs.writeFile(conf.zoneFile, JSON.stringify(req.body,null,2), (err) => {
-    if (err) throw err;
-    console.log('The file has been saved!',req.body);
-  })
-  res.send()
-})
-
-
-app.get('/zones',(req,res)=>{
-  console.log("get zone")
+app.get('/agendas',(req,res)=>{
+  console.log("get agenda")
   const fn =getFileNameFromQ(req)
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(fn);
@@ -81,18 +72,18 @@ app.get('/zones',(req,res)=>{
   
 })
 
-app.delete('/zones',(req,res)=>{
-  console.log("delete zone")
+app.delete('/agendas',(req,res)=>{
+  console.log("delete agenda")
   const fn =getFileNameFromQ(req)
   if(fs.existsSync(fn)){
     fs.unlinkSync(fn);
   }
 })
 
-app.post('/zones',async (req,res)=>{
-  console.log("post zone")
+app.post('/agendas',async (req,res)=>{
+  console.log("post agenda")
  const fn =getFileNameFromQ(req)
-  console.log("creating zone",fn)
+  console.log("creating agenda",fn)
   
   await fs.writeFile(fn, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
@@ -101,10 +92,10 @@ app.post('/zones',async (req,res)=>{
   res.send()
 })
 
-app.get('/zoneNames',(req,res)=>{
-  console.log("listing zone dir",conf.zonesFolder)
+app.get('/agendaNames',(req,res)=>{
+  console.log("listing agenda dir",conf.agendasFolder)
   const o = new Array<string>()
-  fs.readdir(conf.zonesFolder, function (err, files) {
+  fs.readdir(conf.agendasFolder, function (err, files) {
     //handling error
     if (err) {
       return console.log('Unable to scan directory: ' + err);

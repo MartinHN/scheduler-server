@@ -7,9 +7,10 @@ const conf =   {
     usehttps,
     credentials : {key:usehttps?readFileSync('../cert/key.pem'):{},cert:usehttps?readFileSync('../cert/cert.pem'):{}},
     groupFile : 'public/data/groups.json',
-    zoneFile : 'public/data/zone.json',
-    zonesFolder : 'public/data/zones/',
-    serverPort:3003
+    agendaFile : 'public/data/endpoint/agenda.json',
+    agendasFolder : 'public/data/agendas/',
+    serverPort:3003,
+    endpointPort:3004
 }
 // console.log("cer",conf.credentials)
 export default conf

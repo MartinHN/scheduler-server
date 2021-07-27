@@ -10,14 +10,18 @@ class Model extends EventEmitter{
   availableRPI = {} as {[key:string]:{service:RemoteService,lastT:Date}}
 }
 const model = new Model()
+const bonjour = bonjourM()
 
-
-export function  startDNS():Model{
-  const bonjour = bonjourM()
+export function advertiseDNS(){
   
   // advertise an HTTP server 
-  bonjour.publish({ name: hostname(), type: 'rspstrio', port: conf.serverPort,txt:{lala:"lala"} })
+  bonjour.publish({ name: hostname(), type: 'rspstrio', port: conf.endpointPort,txt:{lala:"lala"} })
   
+}
+
+export function  listenDNS():Model{
+
+
   
   // browse for all http services
   
@@ -26,7 +30,7 @@ export function  startDNS():Model{
   const query =    bonjour.find({ type: 'rspstrio' }, function (service) {
     const uuid = [service.name,service.host,service.port].join('_')
     if(!model.availableRPI[uuid]){
-      dbg.warn('Found an Raspestrio server:',uuid)
+      dbg.warn('Found an Raspestrio endpoint:',uuid)
       model.availableRPI[uuid] = {service,lastT:new Date()}
       model.emit("open",uuid)
     }

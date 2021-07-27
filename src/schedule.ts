@@ -3,17 +3,17 @@ import fs from 'fs'
 import conf from './config'
 import * as dbg from './dbg'
 
-let scheduleZones:any = {default:{}}
+let scheduleAgendas:any = {default:{}}
 let isRunning = false;
 let runCB = undefined
 
 export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-    if(!fs.existsSync(conf.zoneFile))
-        fs.writeFileSync(conf.zoneFile,'{}',{ encoding: 'utf-8' })
+    if(!fs.existsSync(conf.agendaFile))
+        fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
     reloadFile('init')
-    fs.watch(conf.zoneFile, { encoding: 'utf-8' }, reloadFile);
+    fs.watch(conf.agendaFile, { encoding: 'utf-8' }, reloadFile);
 
 }
 
@@ -25,8 +25,8 @@ function setRunning(b:boolean,force?:boolean){
     }
 }
 
-function getZoneForDate(d:Date){
-    for(const [k,v] of Object.entries(scheduleZones)){
+function getExceptionZoneForDate(d:Date){
+    for(const [k,v] of Object.entries(scheduleAgendas)){
         if(k==="default") continue
         const dates = (v as any).dates ;
         const {start,end} = dates
@@ -35,13 +35,13 @@ function getZoneForDate(d:Date){
             return v;
         }
     }
-    return scheduleZones.default
+    return scheduleAgendas.default
 }
 
 const days=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"]
 
 
-function getHourRangeFromZone(z:any,d:Date){
+function getHourRangeFromExceptionZone(z:any,d:Date){
     const wh = z && z.weekHours
     if(!wh)return undefined;
     const day = (d.getDay()+6)%7
@@ -73,12 +73,12 @@ function mustBeActiveForHourRange(hR,d:Date){
 
 function checkIfShouldBeActive(){
     const curDate = new Date();
-    if(!scheduleZones){return -1}
+    if(!scheduleAgendas){return -1}
     console.log('applying schedule')
     
-    const z = getZoneForDate(curDate);
-    console.log('got zone',z);
-    const hR = getHourRangeFromZone(z,curDate)
+    const z = getExceptionZoneForDate(curDate);
+    console.log('got agenda',z);
+    const hR = getHourRangeFromExceptionZone(z,curDate)
     console.log('got hours',hR);
     const shouldBeActive = mustBeActiveForHourRange(hR,curDate)
     if(shouldBeActive==undefined){dbg.error("what do we do?? nothing"); return;}
@@ -88,23 +88,23 @@ function checkIfShouldBeActive(){
 
 
 function applyNewSchedule(o:any){
-    if(o.zones)scheduleZones = o.zones;
+    if(o.agendas)scheduleAgendas = o.agendas;
     checkIfShouldBeActive();
 }
 
  function reloadFile(hint?:string){
     
     console.log(hint || 'watch' , 'load json file');
-    fs.readFile(conf.zoneFile,(err,data)=>{
+    fs.readFile(conf.agendaFile,(err,data)=>{
         if(err) throw err
         try{
-            console.log('loading current zone')
+            console.log('loading current agenda')
             const json = JSON.parse(data.toString())
             applyNewSchedule(json);
         }
         catch{
             console.error("corrupted file")
-            fs.writeFileSync(conf.zoneFile,'{}',{ encoding: 'utf-8' })
+            fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
             reloadFile('default');
             
         }
