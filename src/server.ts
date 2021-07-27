@@ -24,7 +24,7 @@ export function startServer(){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.serverPort, () =>
-  console.log(`Example app listening on port ${conf.serverPort}!`));
+  console.log(`Global Server listening on port ${conf.serverPort}!`));
   return server
 }
 

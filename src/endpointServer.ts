@@ -18,25 +18,25 @@ const app = express();
 const endpointDir = path.dirname(conf.agendaFile)
 uConf.setRW(true)
 if(!fs.existsSync(endpointDir))
-  fs.mkdirSync(endpointDir)
+fs.mkdirSync(endpointDir)
 
 if(!fs.existsSync(conf.agendaFile))
-  fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
+fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
 uConf.setRW(false)
 
 
 /*
 endpoint caps
- nickName
- hostname
- isMainServer
- reboot
- on/off
- MiniMadIp
- MiniMadCtl
- ...
- active dmx
- active sound
+nickName
+hostname
+isMainServer
+reboot
+on/off
+MiniMadIp
+MiniMadCtl
+...
+active dmx
+active sound
 
 
 */
@@ -51,9 +51,9 @@ function restGetSet(confName:string,getF:()=>any,setF:(any)=>void,typeV:string="
     if((v!==undefined) || typeof(v)!==typeV){
       setF(v);
     }
-   else{
-     dbg.error("undefined conf var",confName,typeof(v));
-   }
+    else{
+      dbg.error("undefined conf var",confName,typeof(v));
+    }
     res.send()
   })
 }
@@ -71,7 +71,7 @@ export function startEndpointServer(){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.endpointPort, () =>
-  console.log(`Example app listening on port ${conf.endpointPort}!`));
+  console.log(`Endpoint listening on port ${conf.endpointPort}!`));
   return server
 }
 
@@ -108,6 +108,13 @@ app.get("/rssi",(req,res)=>{
 import audioPlayer from './modules/AudioPlayer'
 
 app.post("/go",(req,res)=>{
-  audioPlayer.go();
-res.send()
+  try{
+    audioPlayer.go();
+    
+  }
+  catch(e){
+    console.error("go error", e);
+    res.send(e);
+  }
+  res.send();
 })
