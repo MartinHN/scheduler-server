@@ -10,6 +10,7 @@ const conf =   {
     knownDevicesFile : 'public/data/knownDevices.json',
     agendasFolder : 'public/data/agendas/',
     agendaFile : 'public/data/endpoint/agenda.json',
+    connectedPiFile :  'public/data/connectedDevices.json',
     serverPort:3003,
     endpointPort:3004
 }

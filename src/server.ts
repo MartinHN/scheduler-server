@@ -48,7 +48,8 @@ function getFileNameFromQ(req){
   return conf.agendasFolder+"/"+fn
 }
 
-
+////////////////////
+// DEvice
 app.get('/knownDevices',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(conf.knownDevicesFile);
@@ -64,6 +65,12 @@ app.post('/knownDevices',async (req,res)=>{
   res.send()
 })
 
+
+
+
+
+////////////////////
+// Groups
 app.get('/groups',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(conf.groupFile);
@@ -80,7 +87,8 @@ app.post('/groups',async (req,res)=>{
 })
 
 
-
+////////////////////
+// Agendas
 app.get('/agendas',(req,res)=>{
   console.log("get agenda")
   const fn =getFileNameFromQ(req)

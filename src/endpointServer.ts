@@ -104,16 +104,24 @@ app.get("/rssi",(req,res)=>{
   res.json({value:sys.getRSSI()});
 })
 
+///////////
+// Event
 
 import audioPlayer from './modules/AudioPlayer'
+import relay from'./modules/Relay'
 
-app.post("/go",(req,res)=>{
+app.post("/event",(req,res)=>{
   try{
-    audioPlayer.go();
+    console.warn('new Event',req.body)
+    if(req.body.type==="activate"){
+    const active = req.body.value;
+    audioPlayer.activate(active);
+    relay.activate(active)
+  }
     
   }
   catch(e){
-    console.error("go error", e);
+    console.error("event error", e);
     res.send(e);
   }
   res.send();

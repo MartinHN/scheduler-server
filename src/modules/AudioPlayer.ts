@@ -18,8 +18,14 @@ function sendOSC(address:string,...args:any){
 }
 
 class AudioPlayer{
-    go(fromTime?:number){
+    activate(b:boolean){
+        console.log("act",b)
+        if(b){
             sendOSC("/play")
         }
+        else
+        sendOSC("/stop")
+    }
+
 }
 export default new AudioPlayer() 

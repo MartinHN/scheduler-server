@@ -6,8 +6,18 @@ import * as dbg from './dbg'
 import conf from './config'
 import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
+import { servicesVersion } from 'typescript';
+
+export type PiConInfo = RemoteService
 class Model extends EventEmitter{
-  availableRPI = {} as {[key:string]:{service:RemoteService,lastT:Date}}
+  availableRPI = {} as {[key:string]:{service:PiConInfo,lastT:Date}}
+  getAvailablePis(){
+    const  res = []
+    for(const [k,v] of Object.entries(this.availableRPI)){
+      res.push({name:v.service.host,uuid:k,ip:v.service.addresses[0]});
+    }
+    return res;
+  }
 }
 const model = new Model()
 const bonjour = bonjourM()
@@ -20,9 +30,6 @@ export function advertiseDNS(){
 }
 
 export function  listenDNS():Model{
-
-
-  
   // browse for all http services
   
   const pingInterval = 2000;
@@ -61,6 +68,6 @@ export function  listenDNS():Model{
     query.update();
     
   },pingInterval)
-
+  
   return model
 }
