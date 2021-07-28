@@ -19,6 +19,8 @@ if(!fs.existsSync(conf.agendasFolder))
 
 if(!fs.existsSync(conf.groupFile))
   fs.writeFileSync(conf.groupFile,'{}',{ encoding: 'utf-8' })
+if(!fs.existsSync(conf.knownDevicesFile))
+  fs.writeFileSync(conf.knownDevicesFile,'{}',{ encoding: 'utf-8' })
 
 export function startServer(){
   const httpProto = conf.usehttps?https:http
@@ -45,6 +47,22 @@ function getFileNameFromQ(req){
   }
   return conf.agendasFolder+"/"+fn
 }
+
+
+app.get('/knownDevices',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  var readable = fs.createReadStream(conf.knownDevicesFile);
+  readable.pipe(res);
+})
+
+
+app.post('/knownDevices',async (req,res)=>{
+  await fs.writeFile(conf.knownDevicesFile, JSON.stringify(req.body,null,2), (err) => {
+    if (err) throw err;
+    console.log('The file has been saved!',req.body);
+  })
+  res.send()
+})
 
 app.get('/groups',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
