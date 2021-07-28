@@ -9,6 +9,7 @@ import conf from './config'
 
 import https from 'https'
 import http from 'http'
+import * as  sys  from './sysUtils';
 const app = express();
 
 app.use(cors())
@@ -65,6 +66,11 @@ app.post('/knownDevices',async (req,res)=>{
   res.send()
 })
 
+app.post("/resetRasps", async(req,res)=>{
+  await sys.removeAllRasps();
+  res.send();
+  
+})
 
 
 

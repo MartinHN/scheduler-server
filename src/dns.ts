@@ -8,13 +8,16 @@ import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
 import { servicesVersion } from 'typescript';
 
-export type PiConInfo = RemoteService
+export interface PiConInfo{
+  deviceName:string;
+  ip:string;
+} 
 class Model extends EventEmitter{
-  availableRPI = {} as {[key:string]:{service:PiConInfo,lastT:Date}}
+  availableRPI = {} as {[key:string]:{service:RemoteService,lastT:Date}}
   getAvailablePis(){
     const  res = []
     for(const [k,v] of Object.entries(this.availableRPI)){
-      res.push({name:v.service.host,uuid:k,ip:v.service.addresses[0]});
+      res.push({deviceName:v.service.host,ip:v.service.addresses[0]});
     }
     return res;
   }

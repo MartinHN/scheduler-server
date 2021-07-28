@@ -37,7 +37,7 @@ if(isMainServer){
   
   async function sendEventToPi(pi:PiConInfo,event:any){
     console.log(JSON.stringify(pi))
-    const deviceURL = pi.addresses[0];
+    const deviceURL = pi.ip;
     const devicePORT = conf.endpointPort;
     const path = "/event"
     const data = JSON.stringify(event)
@@ -79,9 +79,9 @@ if(isMainServer){
     }
     const {addr,args} = msg;
     if(addr == "deviceEvent"){
-      const pi = pis.availableRPI[args.deviceName]
-      if(!pi){console.warn('pi not found',Object.keys(pis.availableRPI));return;}
-      sendEventToPi(pi.service,args.event)
+      const pi = Object.values(pis.getAvailablePis()).find(p=>p.deviceName==args.deviceName)
+      if(!pi){console.warn('pi not found',JSON.stringify(pis.getAvailablePis()));return;}
+      sendEventToPi(pi,args.event)
     }
   }
   
@@ -92,4 +92,7 @@ startEndpointServer()
 advertiseDNS();
 startSchedule((state)=>{
   console.log("scheduling State is",state?"on":"off")
+  if(state){
+
+  }
 })
