@@ -1,6 +1,7 @@
 
 import fs from 'fs'
 import conf from './config'
+import  * as endp from './endpointConfig'
 import * as dbg from './dbg'
 
 let scheduleAgendas:any = {default:{}}
@@ -10,10 +11,10 @@ let runCB = undefined
 export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-    if(!fs.existsSync(conf.agendaFile))
-        fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
+    if(!fs.existsSync(endp.conf.agendaFile))
+        fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
     reloadFile('init')
-    fs.watch(conf.agendaFile, { encoding: 'utf-8' }, reloadFile);
+    fs.watch(endp.conf.agendaFile, { encoding: 'utf-8' }, reloadFile);
 
 }
 
@@ -95,7 +96,7 @@ function applyNewSchedule(o:any){
  function reloadFile(hint?:string){
     
     console.log(hint || 'watch' , 'load json file');
-    fs.readFile(conf.agendaFile,(err,data)=>{
+    fs.readFile(endp.conf.agendaFile,(err,data)=>{
         if(err) throw err
         try{
             console.log('loading current agenda')
@@ -104,7 +105,7 @@ function applyNewSchedule(o:any){
         }
         catch{
             console.error("corrupted file")
-            fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
+            fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
             reloadFile('default');
             
         }

@@ -7,21 +7,23 @@ import fs from 'fs';
 import express from 'express'
 import cors from 'cors'
 import conf from './config'
+import  * as endp from './endpointConfig'
 import * as uConf from "./userConf"
 import path from 'path'
 import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
 
+
 const app = express();
 
-const endpointDir = path.dirname(conf.agendaFile)
+const endpointDir = path.dirname(endp.conf.agendaFile)
 uConf.setRW(true)
 if(!fs.existsSync(endpointDir))
 fs.mkdirSync(endpointDir)
 
-if(!fs.existsSync(conf.agendaFile))
-fs.writeFileSync(conf.agendaFile,'{}',{ encoding: 'utf-8' })
+if(!fs.existsSync(endp.conf.agendaFile))
+fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
 uConf.setRW(false)
 
 
@@ -83,13 +85,13 @@ app.use(express.static(endpointDir, {
 
 app.get('/agendaFile',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.agendaFile);
+  var readable = fs.createReadStream(endp.conf.agendaFile);
   readable.pipe(res);
 })
 
 
 app.post('/agendaFile',async (req,res)=>{
-  await fs.writeFile(conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
+  await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     console.log('The file has been saved!',req.body);
   })

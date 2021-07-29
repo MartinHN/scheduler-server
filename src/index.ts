@@ -13,7 +13,6 @@ const isMainServer = true;//uConf.getVariable("isMainServer");
 
 
 if(isMainServer){
-  fs.writeFileSync(conf.connectedPiFile,'{}',{ encoding: 'utf-8' })
   
   const server = startServer()
   const wsServer = startWS(server)
