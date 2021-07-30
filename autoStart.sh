@@ -1,1 +1,1 @@
-node out/index.js
+npm run run
