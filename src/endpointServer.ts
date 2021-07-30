@@ -180,7 +180,7 @@ export function startEndpointServer(){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.endpointPort, () =>
-  console.log(`Endpoint listening on port ${conf.endpointPort}!`));
+  console.log(`Endpoint will listen on port ${conf.endpointPort}!`));
   epOSC.connect("0.0.0.0",conf.endpointPort)
   
   
