@@ -69,15 +69,8 @@ app.use(express.json())
 
 
 
-export function startEndpointServer(){
-  const httpProto = conf.usehttps?https:http
-  const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
-  server.listen(conf.endpointPort, () =>
-  console.log(`Endpoint listening on port ${conf.endpointPort}!`));
-  return server
-}
-
-
+////////////////
+// persistent files
 app.use(express.static(endpointDir, {
   etag: false
 }))
@@ -98,33 +91,102 @@ app.post('/agendaFile',async (req,res)=>{
   res.send()
 })
 
+
+
+
 restGetSetConf("nickName");
 restGetSet("hostName",sys.getHostName,sys.setHostName);
 
-app.get("/rssi",(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  res.json({value:sys.getRSSI()});
-})
+
+//actions
+import audioPlayer from './modules/AudioPlayer'
+import relay from'./modules/Relay'
+let isActive = false
+function activate(active:boolean){
+  isActive = active
+  audioPlayer.activate(active);
+  relay.activate(active)
+}
+
+import {OSCServerModule} from './lib/OSCServerModule'
+
+function handleMsg(msg,time,info: {address:string,port:number}){
+  console.log(info.address,info.port)
+  if(msg.address == "/rssi"){
+    epOSC.send("/rssi",[sys.getRSSI()],info.address,info.port)
+  }
+  else if((msg.address == "/activate" )){
+    if(msg.args.length>0)
+      activate(msg.args[0]?true:false)
+      else
+        epOSC.send("/activate",[isActive?1:0],info.address,info.port)
+
+    }
+    
+    // let schema;
+    // try{
+    //   schema = JSON.parse(msg.args[0])
+    // }
+    // catch(e){
+    //   console.error("schema not parsed",msg.args[0],e);
+    // }
+    // if(schema){
+    //   this.globalEvts.emit("schema",{ep:this,schema})
+    //   this.emit("schema",schema);
+    // }
+  // }
+}
+
+const epOSC= new OSCServerModule((msg,time,info)=>{
+  handleMsg(msg,time,info)
+});
+
+
+
+// app.get("/rssi",(req,res)=>{
+//   res.setHeader('Content-Type', 'application/json');
+//   res.json({value:sys.getRSSI()});
+// })
 
 ///////////
 // Event
 
-import audioPlayer from './modules/AudioPlayer'
-import relay from'./modules/Relay'
 
-app.post("/event",(req,res)=>{
-  try{
-    console.warn('new Event',req.body)
-    if(req.body.type==="activate"){
-    const active = req.body.value;
-    audioPlayer.activate(active);
-    relay.activate(active)
-  }
-    
-  }
-  catch(e){
-    console.error("event error", e);
-    res.send(e);
-  }
-  res.send();
-})
+
+// app.post("/event",(req,res)=>{
+//   try{
+//     console.warn('new Event',req.body)
+//     if(req.body.type==="activate"){
+//     const active = req.body.value;
+
+//   }
+
+//   }
+//   catch(e){
+//     console.error("event error", e);
+//     res.send(e);
+//   }
+//   res.send();
+// })
+
+
+
+///////////////////////
+// Entry point
+
+
+
+export function startEndpointServer(){
+  const httpProto = conf.usehttps?https:http
+  const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
+  server.listen(conf.endpointPort, () =>
+  console.log(`Endpoint listening on port ${conf.endpointPort}!`));
+  epOSC.connect("0.0.0.0",conf.endpointPort)
+  
+  
+  epOSC.udpPort.on('ready',()=>{
+    // sendFirstQueries();
+    console.log(">>>>>>>>>>> endpoint OSC on",epOSC.localPort)
+  })
+  return server
+}

@@ -8,15 +8,19 @@ import conf from './config'
 import fs from 'fs'
 import { startEndpointServer } from './endpointServer'
 import http from 'http'
-
+import {OSCServerModule} from './lib/OSCServerModule'
 const isMainServer = true;//uConf.getVariable("isMainServer");
 
 
 if(isMainServer){
-  
+  //
   const server = startServer()
+  // to from web page
   const wsServer = startWS(server)
-  
+  // to XXXstrios
+  const oscSender = new OSCServerModule(msgFromPi)
+  oscSender.connect()
+
   wsServer.on("connection",(w)=>{
     wsServer.sendTo(w,{type:"deviceList",data:pis.getAvailablePis()})
   })
@@ -34,40 +38,11 @@ if(isMainServer){
     wsServer.broadcast({type:"deviceList",data:pis.getAvailablePis()})
   })
   
-  async function sendEventToPi(pi:PiConInfo,event:any){
+  async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){
     console.log(JSON.stringify(pi))
     const deviceURL = pi.ip;
-    const devicePORT = conf.endpointPort;
-    const path = "/event"
-    const data = JSON.stringify(event)
-    console.log('http POST',deviceURL,path,data)
-    const options:http.RequestOptions = {
-      hostname: deviceURL,
-      port: devicePORT,
-      path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // 'Content-Length': data.length
-      },
-    }
-    
-    const req = http.request(options, res => {
-      console.log(`statusCode: ${res.statusMessage} : ${res.statusCode}`)
-      
-      res.on('data', d => {
-        console.log('resp from post',d)
-      })
-    })
-    
-    req.on('error', error => {
-      console.error(error)
-    })
-    
-    req.write(data)
-    req.end()
-    
-    // return await fetch(`http://${deviceURL}:${devicePORT}/${path}`, requestOptions)
+    const devicePORT = pi.port;
+    oscSender.send(addr,args,deviceURL,devicePORT)
   }
   
   wsServer.onMessage = (ws,msg)=>{
@@ -80,7 +55,21 @@ if(isMainServer){
     if(addr == "deviceEvent"){
       const pi = Object.values(pis.getAvailablePis()).find(p=>p.deviceName==args.deviceName)
       if(!pi){console.warn('pi not found',JSON.stringify(pis.getAvailablePis()));return;}
-      sendEventToPi(pi,args.event)
+      const ev = args.event;
+      const pArg = ev.value!==undefined?[ev.value]:undefined;
+      sendToPi(pi,"/"+ev.type,pArg)
+    }
+
+
+
+  }
+
+  function msgFromPi(msg,time,info){
+    const pi = pis.getPiForIP(info.address)
+    if(pi){
+      console.log(">>>>>>> from pi",pi,msg )
+      const toWeb = {deviceName:pi.deviceName,type:"resp",msg};
+      wsServer.broadcast(toWeb)
     }
   }
   

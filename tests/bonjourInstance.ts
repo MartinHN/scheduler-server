@@ -10,5 +10,5 @@ bonjour.publish({ name: 'test'+new Date(), type: 'rspstrio', port: 3000,txt:{lal
  
 // browse for all http services
 bonjour.find({ type: 'rspstrio' }, function (service) {
-  console.log('Found an Raspestrio server:', service)
+  console.log('Found a Raspestrio server:', service)
 })

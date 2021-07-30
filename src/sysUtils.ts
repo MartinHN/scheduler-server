@@ -22,12 +22,12 @@ export function setHostName(newhost:string){
 export function getRSSI(){
     let res = 0
     try{ 
-    res=parseInt( execSync('iwlist wlan0 scanning | grep  -Eo "....dBm"').toString());
+        res = parseInt(execSync("cat /proc/net/wireless | awk 'END { print $4 }' | sed 's/\.$//'").toString())
+    // res=parseInt( execSync('iwlist wlan0 scanning | grep  -Eo "....dBm"').toString());
     }
     catch(e){
         dbg.error("rssi failed")
     }
-    console.log('willRet')
     return res;
 }
 
