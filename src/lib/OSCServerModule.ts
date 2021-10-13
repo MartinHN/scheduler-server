@@ -6,8 +6,8 @@ export const getIPAddresses = () => {
   const interfaces = os.networkInterfaces();
   const ipAddresses = new Array();
   
-  for (const deviceName of Object.keys(interfaces)) {
-    const addresses = interfaces[deviceName];
+  for (const ifName of Object.keys(interfaces)) {
+    const addresses = interfaces[ifName];
     for (const addressInfo of addresses) {
       if (addressInfo.family === 'IPv4' && !addressInfo.internal ) {
         ipAddresses.push(addressInfo.address);
