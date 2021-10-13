@@ -92,8 +92,6 @@ app.post('/agendaFile',async (req,res)=>{
 })
 
 
-
-
 restGetSetConf("nickName");
 restGetSet("hostName",sys.getHostName,sys.setHostName);
 
@@ -110,6 +108,8 @@ function activate(active:boolean){
 
 import {OSCServerModule} from './lib/OSCServerModule'
 
+
+/// describe basic functionality of endpoints
 function handleMsg(msg,time,info: {address:string,port:number}){
   console.log(info.address,info.port)
   if(msg.address == "/rssi"){
@@ -180,13 +180,13 @@ export function startEndpointServer(){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.endpointPort, () =>
-  console.log(`Endpoint will listen on port ${conf.endpointPort}!`));
+  console.log(`[endpoint OSC] will listen on port ${conf.endpointPort}!`));
   epOSC.connect("0.0.0.0",conf.endpointPort)
   
   
   epOSC.udpPort.on('ready',()=>{
     // sendFirstQueries();
-    console.log(">>>>>>>>>>> endpoint OSC on",epOSC.localPort)
+    console.log("[endpoint OSC] listening on",epOSC.localPort)
   })
   return server
 }

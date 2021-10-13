@@ -22,7 +22,7 @@ if(isMainServer){
   oscSender.connect()
 
   wsServer.on("connection",(w)=>{
-    wsServer.sendTo(w,{type:"deviceList",data:pis.getAvailablePis()})
+    wsServer.sendTo(w,{type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   wsServer.on("message",(w)=>{
     console.log("ws message", w);
@@ -31,11 +31,11 @@ if(isMainServer){
   
   pis.on("open",(pi)=>{
     console.log("newPI",pi)
-    wsServer.broadcast({type:"deviceList",data:pis.getAvailablePis()})
+    wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   pis.on("close",(pi)=>{
     console.log("no more pi",pi)
-    wsServer.broadcast({type:"deviceList",data:pis.getAvailablePis()})
+    wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   
   async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){

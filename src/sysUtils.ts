@@ -4,6 +4,8 @@ import { getConfigFileParsingDiagnostics } from 'typescript';
 import * as dbg from './dbg'
 import conf from './config'
 
+import os from 'os'
+
 const proc =  execSync("uname -a").toString()
 export const isPi = proc.includes("armv")
 
@@ -18,6 +20,25 @@ export function setHostName(newhost:string){
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hostname`);
 }
 
+
+export function getMac(){
+    // we will only use it as uuid so take the first available
+    const ifs = os.networkInterfaces();
+    let firstMac =undefined;
+    for(const [k,v] of Object.entries(ifs)){
+        const curMac = v.find(i=>!!i.mac);
+        if(curMac===undefined || !curMac.mac)continue;
+        const isValidMac = curMac.mac.split(":").find(e=>e!="00")!==undefined
+        if(!isValidMac)continue;
+        dbg.warn(">>> mac",k,v,curMac,isValidMac)
+        if(k.startsWith("e") || firstMac===undefined  )
+            firstMac = curMac
+    } 
+    
+    return (firstMac && firstMac.mac) || "unknown"
+    
+
+}
 
 export function getRSSI(){
     let res = 0
