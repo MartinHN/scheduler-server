@@ -42,7 +42,7 @@ export function startWS(server){
     // autoAcceptConnectio  ns: true
   }));
   wsServer.on('connection', function(_ws) {
-    console.log((new Date()) + ' Connection accepted.');
+    // console.log((new Date()) + ' Connection accepted.');
     const ws =  buildI(_ws) 
     
     ws.on('message', function(message) {

@@ -111,7 +111,7 @@ import {OSCServerModule} from './lib/OSCServerModule'
 
 /// describe basic functionality of endpoints
 function handleMsg(msg,time,info: {address:string,port:number}){
-  console.log(info.address,info.port)
+  console.log("endpoint rcvd",info.address,info.port,msg.address)
   if(msg.address == "/rssi"){
     epOSC.send("/rssi",[sys.getRSSI()],info.address,info.port)
   }

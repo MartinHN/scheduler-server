@@ -5,7 +5,7 @@ export function setEndpointName(n:string){
 }
 
 export function getEndpointName(n:string){
-    return uconf.getVariable("endpointName") || "no name"
+    return uconf.getVariable("endpointName") || "no endpoint name"
 }
 
 

@@ -20,13 +20,11 @@ if(isMainServer){
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
   oscSender.connect()
-
+  
   wsServer.on("connection",(w)=>{
     wsServer.sendTo(w,{type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
-  wsServer.on("message",(w)=>{
-    console.log("ws message", w);
-  })
+  
   const pis = listenDNS()
   
   pis.on("open",(pi)=>{
@@ -46,29 +44,43 @@ if(isMainServer){
   }
   
   wsServer.onMessage = (ws,msg)=>{
-    console.log('Received Message: ' + JSON.stringify(msg));
+    console.log('[wsServer] Received Message: ' + JSON.stringify(msg));
     if(!msg){
-      console.error("empty msg")
+      console.error("[wsServer] empty msg")
       return;
     }
     const {addr,args} = msg;
     if(addr == "deviceEvent"){
-      const pi = Object.values(pis.getAvailablePis()).find(p=>p.deviceName==args.deviceName)
-      if(!pi){console.warn('pi not found',JSON.stringify(pis.getAvailablePis()));return;}
+      const pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
+      if(!pi){console.warn('pi not found',args,JSON.stringify(pis.getAvailablePis()));return;}
       const ev = args.event;
       const pArg = ev.value!==undefined?[ev.value]:undefined;
       sendToPi(pi,"/"+ev.type,pArg)
     }
-
-
-
+    
+    else if(addr == "server"){
+      if(args &&(args.type==="req")){
+        if(args.value==="connectedDeviceList")
+        wsServer.sendTo(ws,{type:"connectedDeviceList",data:pis.getAvailablePis()})
+        else
+        console.error('[wsServer] unknown msg',msg);
+      }
+      else
+      console.error('[wsServer] unknown msg',msg);
+    }
+    else{
+      console.error('[wsServer] unknown msg',msg);
+      
+    }
+    
+    
   }
-
+  
   function msgFromPi(msg,time,info){
     const pi = pis.getPiForIP(info.address)
     if(pi){
       console.log(">>>>>>> from pi",pi,msg )
-      const toWeb = {deviceName:pi.deviceName,type:"resp",msg};
+      const toWeb = {uuid:pi.uuid,type:"resp",msg};
       wsServer.broadcast(toWeb)
     }
   }
@@ -81,6 +93,6 @@ advertiseDNS();
 startSchedule((state)=>{
   console.log("scheduling State is",state?"on":"off")
   if(state){
-
+    
   }
 })
