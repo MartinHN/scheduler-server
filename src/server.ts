@@ -96,11 +96,17 @@ app.post('/groups',async (req,res)=>{
 ////////////////////
 // Agendas
 app.get('/agendas',(req,res)=>{
-  console.log("get agenda")
   const fn =getFileNameFromQ(req)
+  console.log("get agenda",fn)
+  if (fs.existsSync(fn)){
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(fn);
   readable.pipe(res);
+  }
+  else{
+    console.error("agenda not found")
+    res.sendStatus(404)
+  }
   
 })
 
@@ -140,5 +146,12 @@ app.get('/agendaNames',(req,res)=>{
     });
     res.json(o);
   });
+  
+})
+
+app.post("/resetAgendas", async(req,res)=>{
+  await sys.removeAllAgendas();
+  
+  res.send();
   
 })

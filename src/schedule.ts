@@ -4,18 +4,31 @@ import conf from './config'
 import  * as endp from './endpointConfig'
 import * as dbg from './dbg'
 
-let scheduleAgendas:any = {default:{}}
+import * as ScheduleTypes from './types/ScheduleTypes'
+import {Agenda} from './types/ScheduleTypes'
+
+let curAgenda:Agenda = ScheduleTypes.createDefaultAgenda()
 let isRunning = false;
 let runCB = undefined
 
 export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-    if(!fs.existsSync(endp.conf.agendaFile))
-        fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
+    if(!fs.existsSync(endp.conf.agendaFile)){
+        console.warn("generating default agenda")
+        fs.writeFileSync(endp.conf.agendaFile,JSON.stringify(ScheduleTypes.createDefaultAgenda()),{ encoding: 'utf-8' })
+    }
     reloadFile('init')
     fs.watch(endp.conf.agendaFile, { encoding: 'utf-8' }, reloadFile);
 
+}
+
+export function getAgenda(){
+    return curAgenda
+}
+export function willBeRunningForDate(d:Date){
+    if(!curAgenda){return -1}
+    return  ScheduleTypes.isAgendaActiveForDate(d,curAgenda)
 }
 
 function setRunning(b:boolean,force?:boolean){
@@ -26,70 +39,20 @@ function setRunning(b:boolean,force?:boolean){
     }
 }
 
-function getExceptionZoneForDate(d:Date){
-    for(const [k,v] of Object.entries(scheduleAgendas)){
-        if(k==="default") continue
-        const dates = (v as any).dates ;
-        const {start,end} = dates
-        if(!start || !end){dbg.error("no date"); continue;}
-        if(d>=start &&  d < end ){
-            return v;
-        }
-    }
-    return scheduleAgendas.default
-}
-
-const days=["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"]
-
-
-function getHourRangeFromExceptionZone(z:any,d:Date){
-    const wh = z && z.weekHours
-    if(!wh)return undefined;
-    const day = (d.getDay()+6)%7
-    const dayName = days[day];
-    const dob = wh[dayName] || wh.default;
-    console.log('dayname',dayName,dob)
-    if( dob ){
-        if( dob.type=="custom" ){
-            return dob.hourRange
-        }
-        if(dob.type=="no"){
-            return null
-        }
-    }
-    dbg.error("wtf")
-}
-
-
-function mustBeActiveForHourRange(hR,d:Date){ 
-    if(hR == null){return false}
-    let{start,end} = hR
-    if(start && end){
-        console.log(start,end)
-    }
-    dbg.error('no hours given')
-    return undefined 
-}
-
 
 function checkIfShouldBeActive(){
     const curDate = new Date();
-    if(!scheduleAgendas){return -1}
-    console.log('applying schedule')
-    
-    const z = getExceptionZoneForDate(curDate);
-    console.log('got agenda',z);
-    const hR = getHourRangeFromExceptionZone(z,curDate)
-    console.log('got hours',hR);
-    const shouldBeActive = mustBeActiveForHourRange(hR,curDate)
+    if(!curAgenda){console.error('no agenda loaded');return -1}
+    console.log('applying schedule',curDate,curAgenda)
+    const shouldBeActive = ScheduleTypes.isAgendaActiveForDate(curDate,curAgenda)
     if(shouldBeActive==undefined){dbg.error("what do we do?? nothing"); return;}
     setRunning(shouldBeActive)
     
 }
 
 
-function applyNewSchedule(o:any){
-    if(o.agendas)scheduleAgendas = o.agendas;
+function applyNewSchedule(o:Agenda){
+    curAgenda = o;
     checkIfShouldBeActive();
 }
 
@@ -103,9 +66,9 @@ function applyNewSchedule(o:any){
             const json = JSON.parse(data.toString())
             applyNewSchedule(json);
         }
-        catch{
-            console.error("corrupted file")
-            fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
+        catch (e){
+            console.error("corrupted file erasing",e)
+            fs.writeFileSync(endp.conf.agendaFile,JSON.stringify(ScheduleTypes.createDefaultAgenda()),{ encoding: 'utf-8' })
             reloadFile('default');
             
         }

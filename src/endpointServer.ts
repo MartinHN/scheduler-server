@@ -13,7 +13,8 @@ import path from 'path'
 import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
-
+import {willBeRunningForDate,getAgenda} from './schedule'
+import * as  crypto from 'crypto';
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.get('/agendaFile',(req,res)=>{
 })
 
 
+
 app.post('/agendaFile',async (req,res)=>{
   await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
@@ -122,6 +124,17 @@ function handleMsg(msg,time,info: {address:string,port:number}){
         epOSC.send("/activate",[isActive?1:0],info.address,info.port)
 
     }
+
+    else if((msg.address == "/dateShouldActivate" )){
+      let dateToCheck = new Date()
+      if(msg.args.length===3)
+      dateToCheck = new Date(msg.args[0],msg.args[1],msg.args[2],msg.args[3],msg.args[4])
+        
+      const willBeRunning = willBeRunningForDate(dateToCheck)
+      epOSC.send("/dateShouldActivate",[willBeRunning?1:0],info.address,info.port)
+  
+    }
+
     
     // let schema;
     // try{

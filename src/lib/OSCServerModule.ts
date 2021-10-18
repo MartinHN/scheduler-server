@@ -30,6 +30,10 @@ export class OSCServerModule {
   constructor(msgCb = undefined) {
     this.msgCb = msgCb
   }
+
+  networkIsAccessible(){
+    return !!getIPAddresses().length
+  }
   // static getMulticastIp() {
   //   return '230.1.1.1'
   // }
@@ -80,7 +84,7 @@ export class OSCServerModule {
     
     udpPort.on('error', (err) => {
       udpPort.isConnected = false;
-      console.error('OSC Module connection error', err);
+      console.error('[OSC Module] connection error', err);
       this.defferReconnect(udpPort)
     });
     

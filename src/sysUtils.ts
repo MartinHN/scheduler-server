@@ -68,3 +68,12 @@ export async function  removeAllRasps(){
         await fs.writeFileSync(p,'{}',{ encoding: 'utf-8' })
     }
 }
+
+export async function  removeAllAgendas(){
+    const paths =fs.readdirSync(conf.agendasFolder).map(e=>conf.agendasFolder+e)
+    console.warn("clearing all files",paths);
+    for(const p of paths){
+        await fs.unlinkSync(p)
+    }
+    
+}

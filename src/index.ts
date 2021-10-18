@@ -1,6 +1,7 @@
 
 import { startServer } from './server'
 import { listenDNS,advertiseDNS ,PiConInfo} from './dns'
+import * as crypto from 'crypto'
 import {startWS} from './wsServer'
 import { startSchedule} from './schedule'
 import * as uConf from './userConf'
@@ -9,6 +10,8 @@ import fs from 'fs'
 import { startEndpointServer } from './endpointServer'
 import http from 'http'
 import {OSCServerModule} from './lib/OSCServerModule'
+import { DeviceDic, Groups } from './types/DeviceTypes'
+import { postJSON } from './lib/HTTPHelpers'
 const isMainServer = true;//uConf.getVariable("isMainServer");
 
 
@@ -79,11 +82,70 @@ if(isMainServer){
   function msgFromPi(msg,time,info){
     const pi = pis.getPiForIP(info.address)
     if(pi){
-      console.log(">>>>>>> from pi",pi,msg )
+      if(msg && msg.address!="/rssi")
+        console.log(">>>>>>> from pi",msg )
       const toWeb = {uuid:pi.uuid,type:"resp",msg};
       wsServer.broadcast(toWeb)
     }
   }
+
+
+  async function  checkEndpointAgendaIsUpToDate(p:PiConInfo){
+    const knownDevices = JSON.parse(fs.readFileSync(conf.knownDevicesFile).toString()) as DeviceDic
+    const groups = JSON.parse(fs.readFileSync(conf.groupFile).toString()) as Groups
+
+    const curDev = knownDevices[p.uuid]
+    if(!curDev){
+      console.error('no known device for pi')
+      return;
+    }
+
+    const curGroupObj = groups[curDev.group]
+    if(!curGroupObj){
+      console.error('no known group for pi')
+      return;
+    }
+
+    let agendaName = curGroupObj.agendaFileName
+    if(!agendaName.endsWith('.json'))agendaName+='.json'
+    const agendaPath = conf.agendasFolder+"/"+agendaName
+    if(!fs.existsSync(agendaPath)){
+      console.error('no known path for agenda')
+      return;
+    }
+    const data = fs.readFileSync(agendaPath).toString()
+
+    const baseEPURL = "http://"+p.ip+":"+p.port
+    http.get(baseEPURL+"/agendaFile", async res=>{
+       // Buffer the body entirely for processing as a whole.
+        const bodyChunks = [];
+        res.on('data', function(chunk) {
+          // You can process streamed parts here...
+          bodyChunks.push(chunk);
+        }).on('end', async function() {
+          const remoteAg = JSON.parse(Buffer.concat(bodyChunks).toString()); 
+          const localAg = JSON.parse(data)
+          if(JSON.stringify(localAg)!==JSON.stringify(remoteAg)){
+            console.warn("need update",localAg,remoteAg);
+             postJSON(p.ip,"/agendaFile",p.port,data)
+          }
+          else{
+            // console.log(p.uuid, "agenda is uptoDate")
+          }
+          // ...and/or process the entire body here.
+        })
+    }) 
+  }
+
+  setInterval(()=>{
+    for (const c of pis.getAvailablePis()){
+
+      try{
+      checkEndpointAgendaIsUpToDate(c)
+    }catch(e){
+      console.error("trying to update ep",e)
+    }}
+  },3000)
   
   
 }
