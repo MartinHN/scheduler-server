@@ -100,7 +100,7 @@ export function dateDayFromString (d:string) :Date {
   const dspl = d.split('/')
   const spl = dspl.map(e => { return parseInt(e) })
   if (spl.length === 3) {
-    return new Date(spl[2], spl[1] - 1, spl[0],12)
+    return new Date(spl[2], spl[1] - 1, spl[0], 12)
   } else {
     console.error("can't convert", spl)
     return new Date()
@@ -136,7 +136,7 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
       end = 24 * 60 // end is  midnight assume is next day
     }
     if (end > st) {
-      console.log(">>>>>>",d.getHours(),curMinutes,st,end)
+      console.log('>>>>>>', d.getHours(), curMinutes, st, end)
       return curMinutes >= st && curMinutes < end
     } else {
       // error
@@ -148,7 +148,7 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
 }
 
 export function isAgendaActiveForDate (d:Date, ag:Agenda) :boolean {
-  const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(),12)
+  const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
   const ex = ag.agendaExceptionList.find(e => {
     const startD = dateDayFromString(e.dates.start)
     const endD = dateDayFromString(e.dates.end)
@@ -157,10 +157,8 @@ export function isAgendaActiveForDate (d:Date, ag:Agenda) :boolean {
   if (ex) {
     return isActiveForDayType(d, ex.dayValue)
   }
-  
   const dow = (actDay.getDay() + 6) % 7
   const dn = dayNames[dow]
   const dt = (ag.defaultWeek.exceptions as any)[dn] || ag.defaultWeek.default as DayType
-  
   return isActiveForDayType(d, dt)
 }
