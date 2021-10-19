@@ -51,8 +51,7 @@ const bonjour = bonjourM()
 
 export function advertiseDNS(){
   
-  // advertise an localEndpoint server
-  bonjour.publish({ name: hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac()} })
+
   // advertise an HTTP server 
   bonjour.publish({ name: hostname(), host:'tinmar.local',type: 'http',protocol:'tcp', port: conf.serverPort })
   bonjour.publish({ name: hostname(), /* host:'tinmar.local', */type: 'lumestrioMaster',protocol:'tcp', port: conf.serverPort })

@@ -8,7 +8,7 @@ export async function postJSON(hostname:string,path:string,port:number,data:stri
         path,
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'text/plain',//'application/json',
           'Content-Length': data.length
         }
       }
@@ -18,6 +18,7 @@ export async function postJSON(hostname:string,path:string,port:number,data:stri
       
         res.on('data', d => {
         //   process.stdout.write(d)
+        console.log(">>>>> http post data",d)
         })
       })
       
@@ -25,6 +26,6 @@ export async function postJSON(hostname:string,path:string,port:number,data:stri
         console.error(">>>>> http post error",error)
       })
       
-      req.write(data)
+      await req.write(data)
       await req.end()
 }

@@ -35,7 +35,7 @@ if(isMainServer){
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   pis.on("close",(pi)=>{
-    console.log("no more pi",pi)
+    console.log("no more pi",pi.uuid)
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   
@@ -96,7 +96,7 @@ if(isMainServer){
 
     const curDev = knownDevices[p.uuid]
     if(!curDev){
-      console.error('no known device for pi')
+      console.error('no known device for pi',p.uuid)
       return;
     }
 
@@ -123,17 +123,23 @@ if(isMainServer){
           // You can process streamed parts here...
           bodyChunks.push(chunk);
         }).on('end', async function() {
-          const remoteAg = JSON.parse(Buffer.concat(bodyChunks).toString()); 
+          const remoteData = Buffer.concat(bodyChunks).toString();
+          // console.log(remoteData)
+          const remoteAg = remoteData?JSON.parse(remoteData):{}; 
           const localAg = JSON.parse(data)
           if(JSON.stringify(localAg)!==JSON.stringify(remoteAg)){
-            console.warn("need update",localAg,remoteAg);
-             postJSON(p.ip,"/agendaFile",p.port,data)
+            console.warn("need update",localAg,remoteAg,p.port);
+             postJSON(p.ip,"/post/agendaFile",p.port,data)
           }
           else{
             // console.log(p.uuid, "agenda is uptoDate")
           }
           // ...and/or process the entire body here.
+        }).on('error',()=>{
+          console.error("http.con error")
         })
+    }).on('error',()=>{
+      console.error("http.con error")
     }) 
   }
 
@@ -145,11 +151,11 @@ if(isMainServer){
     }catch(e){
       console.error("trying to update ep",e)
     }}
-  },3000)
+  },10000)
   
   
 }
-startEndpointServer()
+// startEndpointServer()
 
 advertiseDNS();
 startSchedule((state)=>{

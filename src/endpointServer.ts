@@ -2,6 +2,8 @@
 
 ////////////////////////
 // SERVE
+import { hostname } from 'os';
+import bonjourM, { RemoteService, Service }  from 'bonjour'
 import * as dbg from './dbg'
 import fs from 'fs';
 import express from 'express'
@@ -85,7 +87,7 @@ app.get('/agendaFile',(req,res)=>{
 
 
 
-app.post('/agendaFile',async (req,res)=>{
+app.post('/post/agendaFile',async (req,res)=>{
   await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     console.log('The file has been saved!',req.body);
@@ -201,5 +203,8 @@ export function startEndpointServer(){
     // sendFirstQueries();
     console.log("[endpoint OSC] listening on",epOSC.localPort)
   })
+  const bonjour = bonjourM()
+    // advertise an localEndpoint server
+    bonjour.publish({ name: hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac()} })
   return server
 }

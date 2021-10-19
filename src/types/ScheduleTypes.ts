@@ -1,4 +1,4 @@
-/// ////////////:
+/// ////////////
 // Agendas
 
 export function hourStringToMinutes (h:string) :number| undefined {
@@ -23,11 +23,12 @@ export function defaultHourRange ():HourRange {
 }
 
 export interface DayType{
+    dayName:string;
     hourRangeList:HourRange[]
 }
 
-export function defaultDayType ():DayType {
-  return { hourRangeList: [defaultHourRange()] }
+export function createDefaultDayType ():DayType {
+  return { dayName: 'default', hourRangeList: [defaultHourRange()] }
 }
 
 export const dayNames = [
@@ -41,42 +42,27 @@ export const dayNames = [
 ]
 
 export interface WeekHours{
-  default:DayType
-  exceptions:{
-  lundi?:DayType
-  mardi?:DayType
-  mercredi?:DayType
-  jeudi?:DayType
-  vendredi?:DayType
-  samedi?:DayType
-  dimanche?:DayType
-  }
+  defaultDay:DayType
+  exceptions:DayType[]
 }
 
-export type ExceptionList = {dayName:string, dayValue:DayType}[]
+export type ExceptionList = DayType[]
 
 export function getExceptionListFromWH (wh:WeekHours):ExceptionList {
   if (wh.exceptions) {
-    return Object.entries(wh.exceptions).map(([dayName, dayValue]) => { return { dayName, dayValue } })
+    return wh.exceptions
   }
   return []
 }
 
 export function getAvailableExceptionDaysFromWH (wh:WeekHours):string[] {
-  return dayNames.filter(d => !Object.keys(wh.exceptions || {}).find(e => e === d))
+  return dayNames.filter(d => !Object.values(wh.exceptions || []).find(e => e.dayName === d))
 }
 
-export function defaultWeekHour ():WeekHours {
+export function createDefaultWeekHour ():WeekHours {
   return {
-    default: defaultDayType(),
-    exceptions: {}
-    // lundi: defaultDayType(),
-    // mardi: defaultDayType(),
-    // mercredi: defaultDayType(),
-    // jeudi: defaultDayType(),
-    // vendredi: defaultDayType(),
-    // samedi: defaultDayType(),
-    // dimanche: defaultDayType()
+    defaultDay: createDefaultDayType(),
+    exceptions: []
   }
 }
 
@@ -113,15 +99,15 @@ export function createAgendaException (name:string):AgendaException {
       start: dateDayToString(new Date()),
       end: dateDayToString(new Date())
     },
-    dayValue: { hourRangeList: [] }
+    dayValue: { dayName: 'default', hourRangeList: [] }
   }
 }
 
 export function createDefaultAgenda () : Agenda {
-  return { name: 'default', defaultWeek: defaultWeekHour(), agendaExceptionList: [] }
+  return { name: 'default', defaultWeek: createDefaultWeekHour(), agendaExceptionList: [] }
 }
 
-/// ////////////
+// /////////////
 // Helper to validate
 
 export function isActiveForDayType (d:Date, day:DayType):boolean {
@@ -159,6 +145,6 @@ export function isAgendaActiveForDate (d:Date, ag:Agenda) :boolean {
   }
   const dow = (actDay.getDay() + 6) % 7
   const dn = dayNames[dow]
-  const dt = (ag.defaultWeek.exceptions as any)[dn] || ag.defaultWeek.default as DayType
+  const dt = (ag.defaultWeek.exceptions as any)[dn] || ag.defaultWeek.defaultDay as DayType
   return isActiveForDayType(d, dt)
 }
