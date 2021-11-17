@@ -3,10 +3,11 @@
 ////////////////////////
 // SERVE
 import fs from 'fs';
+import path from 'path'
 import express from 'express'
 import cors from 'cors'
 import conf from './config'
-
+import * as appPaths from './filePaths'
 import https from 'https'
 import http from 'http'
 import * as  sys  from './sysUtils';
@@ -15,23 +16,28 @@ const app = express();
 app.use(cors())
 app.use(express.json())
 
-if(!fs.existsSync(conf.agendasFolder))
-  fs.mkdirSync(conf.agendasFolder)
 
-if(!fs.existsSync(conf.groupFile))
-  fs.writeFileSync(conf.groupFile,'{}',{ encoding: 'utf-8' })
-if(!fs.existsSync(conf.knownDevicesFile))
-  fs.writeFileSync(conf.knownDevicesFile,'{}',{ encoding: 'utf-8' })
 
-export function startServer(){
+
+
+export function startServer(cb){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
-  server.listen(conf.serverPort, () =>
-  console.log(`Global Server listening on port ${conf.serverPort}!`));
+  server.listen(conf.serverPort, () =>{
+    console.log(`Global Server listening on port ${conf.serverPort}!`);
+    if(cb){cb(conf);}
+   } );
   return server
 }
 
-app.use(express.static("../view-dist", {
+const viewerHTMLBasePath = appPaths.getConf().viewerHTMLBasePath
+
+console.log(">>> static files served at ",viewerHTMLBasePath)
+fs.readdirSync(viewerHTMLBasePath).forEach(file => {
+  console.log("    ",file);
+});
+
+app.use(express.static(viewerHTMLBasePath, {
   etag: false
 }))
 
@@ -41,25 +47,27 @@ app.use(express.static("./public/data", {
 
 
 function getFileNameFromQ(req){
+
   let fn = req.query.n
+  
   if(Array.isArray(fn))fn=fn[0]
-  if(!(fn as string).endsWith(".json")){
+  if(fn && (!(fn as string).endsWith(".json"))){
     fn = fn+".json"
   }
-  return conf.agendasFolder+"/"+fn
+  return appPaths.getConf().agendasFolder+"/"+fn
 }
 
 ////////////////////
 // DEvice
 app.get('/knownDevices',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.knownDevicesFile);
+  var readable = fs.createReadStream(appPaths.getConf().knownDevicesFile);
   readable.pipe(res);
 })
 
 
 app.post('/knownDevices',async (req,res)=>{
-  await fs.writeFile(conf.knownDevicesFile, JSON.stringify(req.body,null,2), (err) => {
+  await fs.writeFile(appPaths.getConf().knownDevicesFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     console.log('The file has been saved!',req.body);
   })
@@ -79,13 +87,13 @@ app.post("/resetRasps", async(req,res)=>{
 // Groups
 app.get('/groups',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(conf.groupFile);
+  var readable = fs.createReadStream(appPaths.getConf().groupFile);
   readable.pipe(res);
 })
 
 
 app.post('/groups',async (req,res)=>{
-  await fs.writeFile(conf.groupFile, JSON.stringify(req.body,null,2), (err) => {
+  await fs.writeFile(appPaths.getConf().groupFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     console.log('The file has been saved!',req.body);
   })
@@ -131,9 +139,9 @@ app.post('/agendas',async (req,res)=>{
 })
 
 app.get('/agendaNames',(req,res)=>{
-  console.log("listing agenda dir",conf.agendasFolder)
+  console.log("listing agenda dir",appPaths.getConf().agendasFolder)
   const o = new Array<string>()
-  fs.readdir(conf.agendasFolder, function (err, files) {
+  fs.readdir(appPaths.getConf().agendasFolder, function (err, files) {
     //handling error
     if (err) {
       return console.log('Unable to scan directory: ' + err);

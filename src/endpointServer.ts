@@ -15,7 +15,7 @@ import path from 'path'
 import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
-import {willBeRunningForDate,getAgenda} from './schedule'
+import {willBeRunningForDate,getAgenda, startSchedule} from './schedule'
 import * as  crypto from 'crypto';
 
 const app = express();
@@ -103,6 +103,11 @@ restGetSet("hostName",sys.getHostName,sys.setHostName);
 //actions
 import audioPlayer from './modules/AudioPlayer'
 import relay from'./modules/Relay'
+
+
+function initModules(){
+  audioPlayer.init();
+}
 let isActive = false
 function activate(active:boolean){
   isActive = active
@@ -191,7 +196,8 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 
 
 
-export function startEndpointServer(){
+export function startEndpointServer(epConf:{endpointName?:string}){
+  initModules();
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.endpointPort, () =>
@@ -204,7 +210,15 @@ export function startEndpointServer(){
     console.log("[endpoint OSC] listening on",epOSC.localPort)
   })
   const bonjour = bonjourM()
-    // advertise an localEndpoint server
-    bonjour.publish({ name: hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac()} })
+  // advertise an localEndpoint server
+  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac()} })
+
+  startSchedule((state)=>{
+    console.log("scheduling State is",state?"on":"off")
+    if(state){
+      
+    }
+  })
+  
   return server
 }

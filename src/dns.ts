@@ -6,8 +6,6 @@ import * as dbg from './dbg'
 import conf from './config'
 import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
-import { servicesVersion } from 'typescript';
-import * as sys from './sysUtils'
 
 export interface PiConInfo{
   uuid:string;
@@ -49,7 +47,7 @@ class Model extends EventEmitter{
 const model = new Model()
 const bonjour = bonjourM()
 
-export function advertiseDNS(){
+export function advertiseServerDNS(){
   
 
   // advertise an HTTP server 
@@ -83,7 +81,7 @@ export function  listenDNS():Model{
       model.emit("open",uuid)
     }
     else{
-      // console.log('Pingfor :',uuid)
+      console.log('Pingfor :',uuid)
       model.availableRPI[uuid].lastT = new Date();
       
     }
@@ -102,6 +100,8 @@ export function  listenDNS():Model{
         model.emit("close",old)
       }
     }
+
+    // console.log("updateMDNS")
     // force callback
     for(const s of Object.values(model.availableRPI)){
       (query as any)._removeService(s.service.fqdn);

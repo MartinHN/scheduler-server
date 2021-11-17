@@ -1,17 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
+    "target": "ES6",
+    "module": "CommonJS",
     "strict": false,
     "jsx": "preserve",
-    "importHelpers": true,
+    "importHelpers": false,
     "moduleResolution": "node",
     "noImplicitAny": false,
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "baseUrl": "src",
     "outDir": "out",
     "typeRoots": [
