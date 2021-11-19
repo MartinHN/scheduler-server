@@ -1,19 +1,22 @@
 /// ////////
 // Devices
+import { CapTypeName } from './CapTypes'
+
 export interface Device {
   uuid:string;
   deviceName:string;
   niceName:string;
   ip:string;
   group:string;
-
+  port:number;
+  caps:CapTypeName[]
   rssi:string;
   activate:boolean;
 }
 
 export function newEmptyDevice (deviceName:string, fields?:any):Device {
   fields = fields || {}
-  return { deviceName, ip: fields.ip || 'null', niceName: fields.niceName || 'no niceName', rssi: fields.rssi || -1, activate: fields.activate || false, uuid: fields.uuid || 'auto@' + Math.ceil(Math.random() * 10e6), group: fields.group || '' }
+  return { deviceName, port: fields.port, ip: fields.ip || 'null', caps: fields.caps || {}, niceName: fields.niceName || 'no niceName', rssi: fields.rssi || -1, activate: fields.activate || false, uuid: fields.uuid || 'auto@' + Math.ceil(Math.random() * 10e6), group: fields.group || '' }
 }
 
 export type DeviceDic = {[id:string]:Device};

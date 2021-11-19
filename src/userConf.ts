@@ -2,6 +2,7 @@ import path from 'path'
 import { execSync, execFileSync } from "child_process"
 import {readFileSync, writeFileSync} from 'fs'
 import {isPi} from './sysUtils'
+import * as dbg from './dbg'
 export const thisPath = isPi?"/home/pi/raspestrio/server":"/home/tinmar/Dev/raspestrio/server" 
 const confBasePath=thisPath+"/public/data"
 const defaultConfFileName = 'app.conf'
@@ -21,7 +22,7 @@ export function load(fName?:string):any{
     try {
         const rawdata = readFileSync(confPath,{encoding:'utf-8'});
         const conf= JSON.parse(rawdata);
-        console.log('loaded',conf,'from', confPath);
+        dbg.log('loaded',conf,'from', confPath);
         return conf
         
     } catch (error) {
@@ -35,7 +36,7 @@ export  function save(conf:any,fName?:string){
     const confPath = confBasePath + (fName || defaultConfFileName)
     setRW(true)
     const jsonContent = JSON.stringify(conf);
-    console.log('saving',jsonContent,'in', confPath);
+    dbg.log('saving',jsonContent,'in', confPath);
     
     writeFileSync(confPath, jsonContent, 'utf8');
     
@@ -69,11 +70,11 @@ export const bootedInRW = isRW()
 
 export function setRW(isRW){
     if(bootedInRW){
-        console.log('ignoring rw as it was booted rw')
+        dbg.log('ignoring rw as it was booted rw')
         return;
     }
     if(isPi){
         const out =  execFileSync(thisPath+"/src/rw.sh",[isRW?"rw":"ro"])
-        if(out)console.log("rw out",out);
+        if(out)dbg.log("rw out",out);
     }
 }

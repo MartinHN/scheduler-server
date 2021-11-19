@@ -1,4 +1,5 @@
 import  osc from 'osc';
+import * as dbg from '../dbg'
 const audioPlayerIp = "0.0.0.0"
 const audioPlayerPort = 9009
 
@@ -8,7 +9,7 @@ class AudioPlayer{
     init(){
             this.udpPort=new osc.UDPPort({
             localAddress: "0.0.0.0",
-            localPort: undefined,// 7777,//this.msgCb ? port : undefined,
+            localPort: 7777,// 7777,//this.msgCb ? port : undefined,
             // multicast,
             // multicastMembership: membership,
             remoteAddress: audioPlayerIp,
@@ -23,7 +24,7 @@ class AudioPlayer{
     this.udpPort.send(msg,audioPlayerIp,audioPlayerPort);
     }
     activate(b:boolean){
-        console.log("act",b)
+        dbg.log("act",b)
         if(b){
             this.sendOSC("/play")
         }

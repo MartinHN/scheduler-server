@@ -1,12 +1,16 @@
+set -x
 EPATH=/home/tinmar/Dev/raspestrio/androidjs/serverdist
-
-rm -r node_modules
-# pnpm i --prod
-npm install --only=prod
-npm run buildForAndroid
 
 rm -r $EPATH
 mkdir $EPATH
-cp -r ./out $EPATH
-cp -r ./node_modules $EPATH
+# rm -r node_modules
+npm run buildForAndroid
 cp -r ../view-dist $EPATH
+
+cp package.json $EPATH
+cd $EPATH
+# pnpm i --prod
+npm install --only=prod
+rm package.json
+# cp -r ./dist/android/* $EPATH
+# cp -r ./node_modules $EPATH

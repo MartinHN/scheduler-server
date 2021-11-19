@@ -1,6 +1,6 @@
 import  os  from 'os';
 import  osc from 'osc';
-
+import * as dbg from "../dbg"
 
 export const getIPAddresses = () => {
   const interfaces = os.networkInterfaces();
@@ -14,7 +14,7 @@ export const getIPAddresses = () => {
       }
     }
   }
-  console.log({ipAddresses})
+  dbg.log({ipAddresses})
   return ipAddresses;
 };
 
@@ -52,7 +52,7 @@ export class OSCServerModule {
       }
     }) :
     undefined  //[{address: ip, interface: localIp}] : undefined
-    console.log(membership)
+    dbg.log(membership)
     
     const udpPort = new osc.UDPPort({
       localAddress: localIp,  // broadcast//0.0.0.0",
@@ -71,20 +71,20 @@ export class OSCServerModule {
         throw new Error("no interface to bind to...")
       }
       udpPort.isConnected = true;
-      console.log('Listening for OSC over UDP.');
+      dbg.log('Listening for OSC over UDP.');
       ipAddresses.forEach((address) => {
-        console.log(' Host:', address + ', Port:', udpPort.options.localPort);
+        dbg.log(' Host:', address + ', Port:', udpPort.options.localPort);
       });
-      console.log('SendingTo');
+      dbg.log('SendingTo');
       
-      console.log(' Host:', udpPort.options.remoteAddress + ', Port:',udpPort.options.remotePort);
+      dbg.log(' Host:', udpPort.options.remoteAddress + ', Port:',udpPort.options.remotePort);
     });
     udpPort.on('bundle', this.processBundle.bind(this));
     udpPort.on('message', this.processMsg.bind(this));
     
     udpPort.on('error', (err) => {
       udpPort.isConnected = false;
-      console.error('[OSC Module] connection error', err);
+      dbg.error('[OSC Module] connection error', err);
       this.defferReconnect(udpPort)
     });
     
@@ -93,22 +93,22 @@ export class OSCServerModule {
     
     close(){
       if(this.udpPort){
-        console.log("closing udpPort")
+        dbg.log("closing udpPort")
         this.udpPort.isConnected = false;
         this.udpPort.close();
       }
       else{
-        console.error("can't close")
+        dbg.error("can't close")
       }
     }
     disconnect(){
       if(this.udpPort){
-        console.error("disconnect",this.udpPort);
+        dbg.error("disconnect",this.udpPort);
         clearTimeout(this.udpPort.timeout);
         this.disconnected = true;
       }
       else{
-        console.error("can't disconnect");
+        dbg.error("can't disconnect");
       }
     }
     defferReconnect(port) {
@@ -120,17 +120,17 @@ export class OSCServerModule {
     }
     tryReConnect(port,firstAttempt) {
       if (port.isConnected) {
-        console.log("already connected")
+        dbg.log("already connected")
         clearTimeout(this.timeout)
         return;
       }
       if(!firstAttempt)
-      console.warn('try connect',port.options.localAddress,port.options.localPort)
+      dbg.warn('try connect',port.options.localAddress,port.options.localPort)
       try {
         
         port.open();
       } catch (e) {
-        console.error('can\'t connect to ', port.localAddress, port.localPort,e)
+        dbg.error('can\'t connect to ', port.localAddress, port.localPort,e)
         if(this.msgCb){
           this.defferReconnect(port)
         }
@@ -159,7 +159,7 @@ export class OSCServerModule {
     send(address, args,remoteAddr,remotePort) {
       if (this.udpPort.isConnected) {
         if(address!="/announce")
-        console.log('sending msg',{address, args},' to',remoteAddr ,remotePort)
+        dbg.log('sending msg',{address, args},' to',remoteAddr ,remotePort)
         this.udpPort.send({address, args},remoteAddr,remotePort)
       }
     }

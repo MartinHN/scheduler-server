@@ -1,5 +1,6 @@
 /// ////////////
 // Agendas
+import * as dbg from '../dbg'
 
 export function hourStringToMinutes (h:string) :number| undefined {
   const spl = h.split(':')
@@ -88,7 +89,7 @@ export function dateDayFromString (d:string) :Date {
   if (spl.length === 3) {
     return new Date(spl[2], spl[1] - 1, spl[0], 12)
   } else {
-    console.error("can't convert", spl)
+    dbg.error("can't convert", spl)
     return new Date()
   }
 }
@@ -111,6 +112,10 @@ export function createDefaultAgenda () : Agenda {
 // Helper to validate
 
 export function isActiveForDayType (d:Date, day:DayType):boolean {
+  if (!day.hourRangeList || !day.hourRangeList.length) {
+    dbg.log('empty day')
+    return false
+  }
   const curMinutes = d.getHours() * 60 + d.getMinutes()
   const validRange = day.hourRangeList.find(e => {
     const st = hourStringToMinutes(e.start)
@@ -122,11 +127,11 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
       end = 24 * 60 // end is  midnight assume is next day
     }
     if (end > st) {
-      console.log('>>>>>>', d.getHours(), curMinutes, st, end)
+      dbg.log('>>>>>>', d.getHours(), curMinutes, st, end)
       return curMinutes >= st && curMinutes < end
     } else {
       // error
-      console.error('invalid ')
+      dbg.error('invalid ')
       return false
     }
   })
@@ -135,16 +140,17 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
 
 export function isAgendaActiveForDate (d:Date, ag:Agenda) :boolean {
   const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
-  const ex = ag.agendaExceptionList.find(e => {
+  const ex = (ag.agendaExceptionList || []).find(e => {
     const startD = dateDayFromString(e.dates.start)
     const endD = dateDayFromString(e.dates.end)
     return (actDay >= startD && actDay <= endD)
   })
   if (ex) {
+    dbg.log('applying exception Period', ex.dayValue)
     return isActiveForDayType(d, ex.dayValue)
   }
   const dow = (actDay.getDay() + 6) % 7
   const dn = dayNames[dow]
-  const dt = (ag.defaultWeek.exceptions as any)[dn] || ag.defaultWeek.defaultDay as DayType
+  const dt = ag.defaultWeek.exceptions.find(e => e.dayName === dn) || ag.defaultWeek.defaultDay as DayType
   return isActiveForDayType(d, dt)
 }

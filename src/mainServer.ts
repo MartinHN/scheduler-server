@@ -1,18 +1,19 @@
-
 import { startServer } from './server'
 import { listenDNS,advertiseServerDNS ,PiConInfo} from './dns'
-import * as crypto from 'crypto'
 import {startWS} from './wsServer'
-import { startSchedule} from './schedule'
-import conf from './config'
 import * as appPaths from './filePaths'
 import fs from 'fs'
-import { startEndpointServer } from './endpointServer'
 import http from 'http'
 import {OSCServerModule} from './lib/OSCServerModule'
 import { DeviceDic, Groups } from './types/DeviceTypes'
 import { postJSON } from './lib/HTTPHelpers'
+import * as dbg from './dbg'
+import jdiff from 'json-diff';
+import chokidar from 'chokidar';
+import _ from 'lodash'
 
+
+let isInaugurationMode = false;
 
 export function startMainServer(serverReadyCb){
   advertiseServerDNS()
@@ -29,32 +30,36 @@ export function startMainServer(serverReadyCb){
   
   const pis = listenDNS()
   
-  pis.on("open",(pi)=>{
-    console.log("newPI",pi)
+  pis.on("open", async  (piUuid) => {
+    dbg.log("newPI",piUuid)
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
+    const pi  = pis.getPiForUUID(piUuid)
+    if(await checkEndpointUpToDate(pi)){
+      dbg.log("endpoint is up to date")
+    }
   })
   pis.on("close",(pi)=>{
-    console.log("no more pi",pi.uuid)
+    dbg.log("no more pi",pi.uuid)
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
   })
   
   async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){
-    console.log(JSON.stringify(pi))
+    dbg.log(JSON.stringify(pi))
     const deviceURL = pi.ip;
     const devicePORT = pi.port;
     oscSender.send(addr,args,deviceURL,devicePORT)
   }
   
   wsServer.onMessage = (ws,msg)=>{
-    console.log('[wsServer] Received Message: ' + JSON.stringify(msg));
+    dbg.log('[wsServer] Received Message: ' + JSON.stringify(msg));
     if(!msg){
-      console.error("[wsServer] empty msg")
+      dbg.error("[wsServer] empty msg")
       return;
     }
     const {addr,args} = msg;
     if(addr == "deviceEvent"){
       const pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
-      if(!pi){console.warn('pi not found',args,JSON.stringify(pis.getAvailablePis()));return;}
+      if(!pi){dbg.warn('pi not found',args,JSON.stringify(pis.getAvailablePis()));return;}
       const ev = args.event;
       const pArg = ev.value!==undefined?[ev.value]:undefined;
       sendToPi(pi,"/"+ev.type,pArg)
@@ -64,14 +69,20 @@ export function startMainServer(serverReadyCb){
       if(args &&(args.type==="req")){
         if(args.value==="connectedDeviceList")
         wsServer.sendTo(ws,{type:"connectedDeviceList",data:pis.getAvailablePis()})
+        else if(args.value==="isInaugurationMode"){
+          wsServer.sendTo(ws,{type:"isInaugurationMode",data:isInaugurationMode})
+        }
         else
-        console.error('[wsServer] unknown msg',msg);
+        dbg.error('[wsServer] unknown msg',msg);
       }
       else
-      console.error('[wsServer] unknown msg',msg);
+      if(args.type==="isInaugurationMode"){
+        setInaugurationMode(!!args.value)
+      }
+      
     }
     else{
-      console.error('[wsServer] unknown msg',msg);
+      dbg.error('[wsServer] unknown msg',msg);
       
     }
     
@@ -82,76 +93,151 @@ export function startMainServer(serverReadyCb){
     const pi = pis.getPiForIP(info.address)
     if(pi){
       if(msg && msg.address!="/rssi")
-        console.log(">>>>>>> from pi",msg )
+      dbg.log(">>>>>>> from pi",msg )
       const toWeb = {uuid:pi.uuid,type:"resp",msg};
       wsServer.broadcast(toWeb)
     }
   }
-
-
-  async function  checkEndpointAgendaIsUpToDate(p:PiConInfo){
+  
+  async function checkRemoteResource(p:PiConInfo,addr:string,tgtObj:any){
     const appFilePaths = appPaths.getConf();
-    const knownDevices = JSON.parse(fs.readFileSync(appFilePaths.knownDevicesFile).toString()) as DeviceDic
-    const groups = JSON.parse(fs.readFileSync(appFilePaths.groupFile).toString()) as Groups
-
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
+    
     const curDev = knownDevices[p.uuid]
     if(!curDev){
-      console.error('no known device for pi',p.uuid)
-      return;
+      dbg.error('no known device for pi',p.uuid || p)
+      return false;
     }
-
-    const curGroupObj = groups[curDev.group]
-    if(!curGroupObj){
-      console.error('no known group for pi')
-      return;
-    }
-
-    let agendaName = curGroupObj.agendaFileName
-    if(!agendaName.endsWith('.json'))agendaName+='.json'
-    const agendaPath = appFilePaths.agendasFolder+"/"+agendaName
-    if(!fs.existsSync(agendaPath)){
-      console.error('no known path for agenda')
-      return;
-    }
-    const data = fs.readFileSync(agendaPath).toString()
-
+    
     const baseEPURL = "http://"+p.ip+":"+p.port
-    http.get(baseEPURL+"/agendaFile", async res=>{
-       // Buffer the body entirely for processing as a whole.
+    return new Promise((resolve,reject)=>{
+      http.get(baseEPURL+addr, async res=>{
+        // Buffer the body entirely for processing as a whole.
         const bodyChunks = [];
         res.on('data', function(chunk) {
           // You can process streamed parts here...
           bodyChunks.push(chunk);
         }).on('end', async function() {
           const remoteData = Buffer.concat(bodyChunks).toString();
-          // console.log(remoteData)
-          const remoteAg = remoteData?JSON.parse(remoteData):{}; 
-          const localAg = JSON.parse(data)
-          if(JSON.stringify(localAg)!==JSON.stringify(remoteAg)){
-            console.warn("need update",localAg,remoteAg,p.port);
-             postJSON(p.ip,"/post/agendaFile",p.port,data)
+          // dbg.log(remoteData)
+          const remoteInfo = remoteData?JSON.parse(remoteData):{}; 
+          
+          if(JSON.stringify(tgtObj)!==JSON.stringify(remoteInfo)){
+            dbg.warn("need update  "+addr,jdiff.diffString(remoteInfo,tgtObj));
+            postJSON(p.ip,"/post"+addr,p.port,tgtObj)
+            resolve(false);
           }
           else{
-            // console.log(p.uuid, "agenda is uptoDate")
+            dbg.log(p.uuid, "res "+addr+" is uptoDate")
+            resolve(true);
           }
           // ...and/or process the entire body here.
-        }).on('error',()=>{
-          console.error("http.con error")
+        }).on('error',(e)=>{
+          dbg.error("http.con error")
+          reject(e)
         })
-    }).on('error',()=>{
-      console.error("http.con error")
-    }) 
+      }).on('error',(e)=>{
+        dbg.error("http.con error")
+        reject(e)
+      })  
+    })
   }
-
-  setInterval(()=>{
+  
+  
+  async function  checkEndpointAgendaIsUpToDate(p:PiConInfo){
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
+    const curDev = knownDevices[p.uuid]
+    if(!curDev){
+      dbg.error('no known device for pi',p.uuid || p)
+      return;
+    }
+    
+    const curGroupObj = groups[curDev.group]
+    if(!curGroupObj){
+      dbg.error('no known group for pi ignore checking agenda')
+      return;
+    }
+    
+    let agendaName = curGroupObj.agendaFileName
+    if(!agendaName.endsWith('.json'))agendaName+='.json'
+    const agendaPath = appFilePaths.agendasFolder+"/"+agendaName
+    if(!fs.existsSync(agendaPath)){
+      dbg.error('no known path for agenda')
+      return false;
+    }
+    const data = fs.readFileSync(agendaPath).toString()
+    return await checkRemoteResource(p,"/agendaFile",JSON.parse(data));
+    
+  }
+  
+  
+  async function  checkEndpointInfoIsUpToDate(p:PiConInfo){
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
+    
+    const curDev = knownDevices[p.uuid]
+    if(!curDev){
+      dbg.error('no known device for pi',p.uuid || p)
+      return false;
+    }
+    
+    
+    return await checkRemoteResource(p,"/info",{niceName:curDev.niceName});
+    
+  }
+  
+  async function checkEndpointUpToDate(p:PiConInfo){
+    
+    const agOk=  !! (await checkEndpointAgendaIsUpToDate(p));
+    const infoOk=  !! (await checkEndpointInfoIsUpToDate(p));
+    
+    return agOk && infoOk;
+  }
+  
+  function checkAllEndpoints(){
+    
+    if(!fs.existsSync(appPaths.getConf().knownDevicesFile)){
+      dbg.warn('no file ')
+      return
+    }
+    const curDev = appPaths.getFileObj(appPaths.getConf().knownDevicesFile);
+    if(!curDev){
+      dbg.warn('infalid file ')
+      return
+    }
+    dbg.log('>>>> checking all up to date')
     for (const c of pis.getAvailablePis()){
-
       try{
-      checkEndpointAgendaIsUpToDate(c)
-    }catch(e){
-      console.error("trying to update ep",e)
-    }}
-  },10000)
+        checkEndpointUpToDate(c)
+      }catch(e){
+        dbg.error("trying to update ep",e)
+      }
+    }
+  }
+  const checkAllEndpointsDbnc = _.debounce(checkAllEndpoints, 300, {})
+  var watcher = chokidar.watch(appPaths.getConf().baseDir, {ignored: /^\./, persistent: true});
+  watcher.on("change",(e)=>{dbg.log("chg",e); checkAllEndpointsDbnc()});
+  watcher.on("add", checkAllEndpointsDbnc);
+  watcher.on("unlink", checkAllEndpointsDbnc);
+  watcher.on("error", e=>dbg.error("watch error",e));
+  
+  
+  function setInaugurationMode(b:boolean){
+    isInaugurationMode = b
+    dbg.warn('inauguration set to ' + isInaugurationMode?'on':'off');
+    for (const p of pis.getAvailablePis()){
+      try{
+        sendToPi(p,"/activate",[isInaugurationMode?1:0])
+        // checkEndpointUpToDate(c)
+      }catch(e){
+        dbg.error("trying to update ep",e)
+      }
+    }
+  }
   
   
 }

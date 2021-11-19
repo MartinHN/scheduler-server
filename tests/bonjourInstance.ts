@@ -1,6 +1,6 @@
 
 import bonjourM  from 'bonjour'
-
+import * as dbg from '../src/dbg'
 
 const bonjour = bonjourM()
  
@@ -10,5 +10,5 @@ bonjour.publish({ name: 'test'+new Date(), type: 'rspstrio', port: 3000,txt:{lal
  
 // browse for all http services
 bonjour.find({ type: 'rspstrio' }, function (service) {
-  console.log('Found a Raspestrio server:', service)
+  dbg.log('Found a Raspestrio server:', service)
 })

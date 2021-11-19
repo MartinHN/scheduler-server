@@ -63,15 +63,15 @@ export function reboot(){
 
 export async function  removeAllRasps(){
     const paths =[appPaths.getConf().knownDevicesFile,appPaths.getConf().groupFile]
-    console.warn("clearing all files",paths);
+    dbg.warn("clearing all files",paths);
     for(const p of paths){
         await fs.writeFileSync(p,'{}',{ encoding: 'utf-8' })
     }
 }
 
 export async function  removeAllAgendas(){
-    const paths =fs.readdirSync(appPaths.getConf().agendasFolder).map(e=>paths.agendasFolder+e)
-    console.warn("clearing all files",paths);
+    const paths =fs.readdirSync(appPaths.getConf().agendasFolder).map(e=>appPaths.getConf().agendasFolder+e)
+    dbg.warn("clearing all files",paths);
     for(const p of paths){
         await fs.unlinkSync(p)
     }

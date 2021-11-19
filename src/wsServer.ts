@@ -1,5 +1,5 @@
 import  WebSocket from  'ws';
-
+import * as dbg from './dbg'
 export interface WSSimple extends WebSocket{
   msg(s:string):void;
 }
@@ -42,12 +42,12 @@ export function startWS(server){
     // autoAcceptConnectio  ns: true
   }));
   wsServer.on('connection', function(_ws) {
-    // console.log((new Date()) + ' Connection accepted.');
+    // dbg.log((new Date()) + ' Connection accepted.');
     const ws =  buildI(_ws) 
     
     ws.on('message', function(message) {
       let str = message.toString()
-      // console.log('Received Message: ' + message);
+      // dbg.log('Received Message: ' + message);
       // if(str)
       if(wsServer.onMessage)
      { wsServer.onMessage(ws,JSON.parse(str))}
@@ -58,11 +58,11 @@ export function startWS(server){
     });
     
     ws.on('close', function(reasonCode, description) {
-      console.log((new Date()) + ' Peer ' + ws.url + ' disconnected.');
+      // dbg.log((new Date()) + ' ws Peer ' + ws.url + ' disconnected.');
     });
     
     ws.on('error', function(reasonCode, description) {
-      console.log((new Date()) + ' Peer ' + ws.url + ' disconnected.');
+      dbg.error((new Date()) + 'ws Peer ' + ws.url + ' disconnected.');
     });
   });
   

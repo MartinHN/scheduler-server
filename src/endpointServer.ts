@@ -20,13 +20,17 @@ import * as  crypto from 'crypto';
 
 const app = express();
 
-const endpointDir = path.dirname(endp.conf.agendaFile)
+const endpointDir = path.dirname(endp.epBasePath)
 uConf.setRW(true)
 if(!fs.existsSync(endpointDir))
 fs.mkdirSync(endpointDir)
 
 if(!fs.existsSync(endp.conf.agendaFile))
 fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
+if(!fs.existsSync(endp.conf.infoFile))
+fs.writeFileSync(endp.conf.infoFile,'{}',{ encoding: 'utf-8' })
+
+
 uConf.setRW(false)
 
 
@@ -70,6 +74,17 @@ function restGetSetConf(confName:string){
 app.use(cors())
 app.use(express.json())
 
+app.use(function(req, res, next){
+  if (req.is('text/*')) {
+    req.body = '';
+    req.setEncoding('utf8');
+    req.on('data', function(chunk){ req.body += chunk });
+    req.on('end', next);
+  } else {
+    next();
+  }
+});
+
 
 
 ////////////////
@@ -88,11 +103,34 @@ app.get('/agendaFile',(req,res)=>{
 
 
 app.post('/post/agendaFile',async (req,res)=>{
+  uConf.setRW(true)
   await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
-    console.log('The file has been saved!',req.body);
+    dbg.log('The agenda file has been saved!',endp.conf.agendaFile,req.body);
   })
   res.send()
+  uConf.setRW(false)
+})
+
+
+app.get('/info',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  var readable = fs.createReadStream(endp.conf.infoFile);
+  const data =fs.readFileSync(endp.conf.infoFile).toString()
+  dbg.log("getting info",data)
+  readable.pipe(res);
+})
+
+
+
+app.post('/post/info',async (req,res)=>{
+  uConf.setRW(true)
+  await fs.writeFile(endp.conf.infoFile, JSON.stringify(req.body,null,2), (err) => {
+    if (err) throw err;
+    dbg.log('The info file has been saved!',req.body);
+  })
+  res.send()
+  uConf.setRW(false)
 })
 
 
@@ -103,7 +141,31 @@ restGetSet("hostName",sys.getHostName,sys.setHostName);
 //actions
 import audioPlayer from './modules/AudioPlayer'
 import relay from'./modules/Relay'
+import OSCSenderModule from './modules/OSCSenderModule'
 
+
+function registerConfFile(app,capName:string,capFile:string){
+  app.post('/post/cap/'+capName,async (req,res)=>{
+    uConf.setRW(true)
+    await fs.writeFile(capFile, JSON.stringify(req.body,null,2), (err) => {
+      if (err) throw err;
+      dbg.log('The cap conf has been saved!',capName,req.body);
+    })
+    res.send()
+    uConf.setRW(false)
+  })
+  app.get('/cap/'+capName,(req,res)=>{
+    res.setHeader('Content-Type', 'application/json');
+    var readable = fs.createReadStream(capFile);
+    // const data =fs.readFileSync(capFile).toString()
+    dbg.log("getting cap conf",capName)
+    readable.pipe(res);
+  })
+  
+}
+
+const oscModule = new OSCSenderModule(endp.epBasePath+"/osc.json");
+registerConfFile(app,"osc",oscModule.confFile);
 
 function initModules(){
   audioPlayer.init();
@@ -113,14 +175,18 @@ function activate(active:boolean){
   isActive = active
   audioPlayer.activate(active);
   relay.activate(active)
+  oscModule.activate(active);
 }
 
+
+
+/// osc
 import {OSCServerModule} from './lib/OSCServerModule'
 
 
 /// describe basic functionality of endpoints
 function handleMsg(msg,time,info: {address:string,port:number}){
-  console.log("endpoint rcvd",info.address,info.port,msg.address)
+  dbg.log("endpoint rcvd",info.address,info.port,msg.address)
   if(msg.address == "/rssi"){
     epOSC.send("/rssi",[sys.getRSSI()],info.address,info.port)
   }
@@ -148,7 +214,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     //   schema = JSON.parse(msg.args[0])
     // }
     // catch(e){
-    //   console.error("schema not parsed",msg.args[0],e);
+    //   dbg.error("schema not parsed",msg.args[0],e);
     // }
     // if(schema){
     //   this.globalEvts.emit("schema",{ep:this,schema})
@@ -175,7 +241,7 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 
 // app.post("/event",(req,res)=>{
 //   try{
-//     console.warn('new Event',req.body)
+//     dbg.warn('new Event',req.body)
 //     if(req.body.type==="activate"){
 //     const active = req.body.value;
 
@@ -183,7 +249,7 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 
 //   }
 //   catch(e){
-//     console.error("event error", e);
+//     dbg.error("event error", e);
 //     res.send(e);
 //   }
 //   res.send();
@@ -201,23 +267,22 @@ export function startEndpointServer(epConf:{endpointName?:string}){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.endpointPort, () =>
-  console.log(`[endpoint OSC] will listen on port ${conf.endpointPort}!`));
+  dbg.log(`[endpoint OSC] will listen on port ${conf.endpointPort}!`));
   epOSC.connect("0.0.0.0",conf.endpointPort)
   
   
   epOSC.udpPort.on('ready',()=>{
     // sendFirstQueries();
-    console.log("[endpoint OSC] listening on",epOSC.localPort)
+    dbg.log("[endpoint OSC] listening on",epOSC.localPort)
   })
   const bonjour = bonjourM()
   // advertise an localEndpoint server
-  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac()} })
+  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc,html"} })
 
   startSchedule((state)=>{
-    console.log("scheduling State is",state?"on":"off")
-    if(state){
-      
-    }
+    dbg.log(">>>>> scheduling State is",state?"on":"off")
+    activate(!!state)
+    
   })
   
   return server

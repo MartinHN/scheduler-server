@@ -12,6 +12,7 @@ export interface PiConInfo{
   deviceName:string;
   ip:string;
   port:number;
+  caps:string[]
 } 
 
 interface ServiceEP{service:RemoteService,lastT:Date,uuid:string}
@@ -25,12 +26,12 @@ class Model extends EventEmitter{
     return res;
   }
   
-  getPiForUUID(uuid:string){
+  getPiForUUID(uuid:string):PiConInfo | undefined{
     const serviceEP = Object.values(this.availableRPI).find(p=>{return this.piFromServiceEP(p).uuid===uuid})
     if(serviceEP){
       return this.piFromServiceEP(serviceEP);
     }
-    console.error(">>>>>>>>> no service found for uuid",uuid)
+    dbg.error(">>>>>>>>> no service found for uuid",uuid)
   }
   
   getPiForIP(ip:string){
@@ -38,10 +39,10 @@ class Model extends EventEmitter{
     if(serviceEP){
       return this.piFromServiceEP(serviceEP);
     }
-    console.error(">>>>>>>>> no service found for ip ",ip)
+    dbg.error(">>>>>>>>> no service found for ip ",ip)
   }
   piFromServiceEP(v:ServiceEP):PiConInfo{
-    return {deviceName:v.service.host,ip:v.service.addresses[0],port:v.service.port,uuid:v.uuid}
+    return {deviceName:v.service.host,ip:v.service.addresses[0],port:v.service.port,uuid:v.uuid,caps:(v.service.txt["caps"] || "").split(",")}
   }
 }
 const model = new Model()
@@ -64,13 +65,14 @@ export function  listenDNS():Model{
   
   //   setInterval(()=>{
   //     bonjour.find({ type: 'http'}, function (service){
-  //       console.log('service',service)
+  //       dbg.log('service',service)
   //     })
   // },3000);
   
   const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'}, function (service) {
     
     let uuid = service.txt["uuid"];
+    
     if(uuid === undefined){
       dbg.error("no uuid present in MDNS")
       uuid = [service.name,service.port].join('_');
@@ -81,7 +83,7 @@ export function  listenDNS():Model{
       model.emit("open",uuid)
     }
     else{
-      console.log('Pingfor :',uuid)
+      // dbg.log('Pingfor :',uuid)
       model.availableRPI[uuid].lastT = new Date();
       
     }
@@ -101,7 +103,7 @@ export function  listenDNS():Model{
       }
     }
 
-    // console.log("updateMDNS")
+    // dbg.log("updateMDNS")
     // force callback
     for(const s of Object.values(model.availableRPI)){
       (query as any)._removeService(s.service.fqdn);

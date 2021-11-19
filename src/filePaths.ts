@@ -1,6 +1,7 @@
 /////////////////////:
 /// config
 import fs from 'fs'
+import * as dbg from './dbg'
 let hasValidFolders = false;
 let baseAppPath = '';
 let viewerHTMLBasePath = "../view-dist";
@@ -10,10 +11,11 @@ let conf = getConf(true)
 const usehttps = false;
 export function getConf(ignoreInvalid = false) {
     if(!ignoreInvalid && !hasValidFolders){
-        console.error("base path not valid",baseAppPath)
+        dbg.error("base path not valid",baseAppPath)
     }
 return {
     viewerHTMLBasePath ,
+    baseDir : baseAppPath+'public/data',
     groupFile : baseAppPath+'public/data/groups.json',
     knownDevicesFile : baseAppPath+'public/data/knownDevices.json',
     agendasFolder : baseAppPath+'public/data/agendas/',
@@ -22,7 +24,7 @@ return {
 
 
 export function setViewerHTMLBasePath(n:string){
-    console.log("setting base html path ",n)
+    dbg.log("setting base html path ",n)
     viewerHTMLBasePath = n;
     conf = getConf(true);
 }
@@ -34,6 +36,16 @@ export function setRWBasePath(n:string){
     initFolders();
     rwPathIsSet = true;
 }
+
+export function getFileObj(p:string){
+    try {
+        return  JSON.parse(fs.readFileSync(p).toString())
+    } catch (error) {
+        dbg.error("can't parse file",p,error)
+    }
+    return undefined
+}
+
 
 function initFolders(){
      try{
@@ -47,7 +59,7 @@ function initFolders(){
         hasValidFolders = true;
      }
      catch (e){
-         console.error("can't init files for base path" , baseAppPath,e)
+         dbg.error("can't init files for base path" , baseAppPath,e)
      }
   
 }
@@ -58,4 +70,4 @@ let rwPathIsSet  =false;
 
 
 
-// console.log("cer",conf.credentials)
+// dbg.log("cer",conf.credentials)

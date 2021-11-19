@@ -6,20 +6,20 @@ import * as dbg from './dbg'
 
 import * as ScheduleTypes from './types/ScheduleTypes'
 import {Agenda} from './types/ScheduleTypes'
+import ConfFileWatcher from './ConfFileWatcher'
 
 let curAgenda:Agenda = ScheduleTypes.createDefaultAgenda()
 let isRunning = false;
 let runCB = undefined
 
+const confWatcher = new ConfFileWatcher(endp.conf.agendaFile,(o)=>{
+    applyNewSchedule(o)
+},ScheduleTypes.createDefaultAgenda())
+
 export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-    if(!fs.existsSync(endp.conf.agendaFile)){
-        console.warn("generating default agenda")
-        fs.writeFileSync(endp.conf.agendaFile,JSON.stringify(ScheduleTypes.createDefaultAgenda()),{ encoding: 'utf-8' })
-    }
-    reloadFile('init')
-    fs.watch(endp.conf.agendaFile, { encoding: 'utf-8' }, reloadFile);
+
 
 }
 
@@ -32,7 +32,7 @@ export function willBeRunningForDate(d:Date){
 }
 
 function setRunning(b:boolean,force?:boolean){
-    console.log((b?"start":"stop") + " all services " + (force?"(forcing)":""))
+    dbg.log((b?"start":"stop") + " all services " + (force?"(forcing)":""))
     isRunning = b;
     if(runCB){
         runCB(b);
@@ -42,8 +42,8 @@ function setRunning(b:boolean,force?:boolean){
 
 function checkIfShouldBeActive(){
     const curDate = new Date();
-    if(!curAgenda){console.error('no agenda loaded');return -1}
-    console.log('applying schedule',curDate,curAgenda)
+    if(!curAgenda){dbg.error('no agenda loaded');return -1}
+    dbg.log('applying schedule',curDate,JSON.stringify(curAgenda))
     const shouldBeActive = ScheduleTypes.isAgendaActiveForDate(curDate,curAgenda)
     if(shouldBeActive==undefined){dbg.error("what do we do?? nothing"); return;}
     setRunning(shouldBeActive)
@@ -54,24 +54,4 @@ function checkIfShouldBeActive(){
 function applyNewSchedule(o:Agenda){
     curAgenda = o;
     checkIfShouldBeActive();
-}
-
- function reloadFile(hint?:string){
-    
-    console.log(hint || 'watch' , 'load json file');
-    fs.readFile(endp.conf.agendaFile,(err,data)=>{
-        if(err) throw err
-        try{
-            console.log('loading current agenda')
-            const json = JSON.parse(data.toString())
-            applyNewSchedule(json);
-        }
-        catch (e){
-            console.error("corrupted file erasing",e)
-            fs.writeFileSync(endp.conf.agendaFile,JSON.stringify(ScheduleTypes.createDefaultAgenda()),{ encoding: 'utf-8' })
-            reloadFile('default');
-            
-        }
-    })
-    
 }

@@ -11,12 +11,22 @@ import * as appPaths from './filePaths'
 import https from 'https'
 import http from 'http'
 import * as  sys  from './sysUtils';
+import * as dbg from './dbg'
 const app = express();
 
 app.use(cors())
 app.use(express.json())
 
-
+app.use(function(req, res, next){
+  if (req.is('text/*')) {
+    req.body = '';
+    req.setEncoding('utf8');
+    req.on('data', function(chunk){ req.body += chunk });
+    req.on('end', next);
+  } else {
+    next();
+  }
+});
 
 
 
@@ -24,7 +34,7 @@ export function startServer(cb){
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
   server.listen(conf.serverPort, () =>{
-    console.log(`Global Server listening on port ${conf.serverPort}!`);
+    dbg.log(`Global Server listening on port ${conf.serverPort}!`);
     if(cb){cb(conf);}
    } );
   return server
@@ -32,25 +42,25 @@ export function startServer(cb){
 
 const viewerHTMLBasePath = appPaths.getConf().viewerHTMLBasePath
 
-console.log(">>> static files served at ",viewerHTMLBasePath)
+dbg.log(">>> static files served at ",viewerHTMLBasePath)
 fs.readdirSync(viewerHTMLBasePath).forEach(file => {
-  console.log("    ",file);
+  dbg.log("    ",file);
 });
 
-app.use(express.static(viewerHTMLBasePath, {
-  etag: false
-}))
 
 app.use(express.static("./public/data", {
   etag: false
 }))
 
 
-function getFileNameFromQ(req){
-
+function getFirstReqArg(req){
   let fn = req.query.n
-  
   if(Array.isArray(fn))fn=fn[0]
+  return fn
+}
+
+function getFileNameFromQ(req){
+  let fn = getFirstReqArg(req)
   if(fn && (!(fn as string).endsWith(".json"))){
     fn = fn+".json"
   }
@@ -69,7 +79,7 @@ app.get('/knownDevices',(req,res)=>{
 app.post('/knownDevices',async (req,res)=>{
   await fs.writeFile(appPaths.getConf().knownDevicesFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
-    console.log('The file has been saved!',req.body);
+    dbg.log('The file has been saved!',req.body);
   })
   res.send()
 })
@@ -95,31 +105,32 @@ app.get('/groups',(req,res)=>{
 app.post('/groups',async (req,res)=>{
   await fs.writeFile(appPaths.getConf().groupFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
-    console.log('The file has been saved!',req.body);
+    dbg.log('The file has been saved!',req.body);
   })
   res.send()
 })
+
 
 
 ////////////////////
 // Agendas
 app.get('/agendas',(req,res)=>{
   const fn =getFileNameFromQ(req)
-  console.log("get agenda",fn)
+  dbg.log("get agenda",fn)
   if (fs.existsSync(fn)){
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(fn);
   readable.pipe(res);
   }
   else{
-    console.error("agenda not found")
+    dbg.error("agenda not found")
     res.sendStatus(404)
   }
   
 })
 
 app.delete('/agendas',(req,res)=>{
-  console.log("delete agenda")
+  dbg.log("delete agenda")
   const fn =getFileNameFromQ(req)
   if(fs.existsSync(fn)){
     fs.unlinkSync(fn);
@@ -127,24 +138,24 @@ app.delete('/agendas',(req,res)=>{
 })
 
 app.post('/agendas',async (req,res)=>{
-  console.log("post agenda")
+  dbg.log("post agenda")
  const fn =getFileNameFromQ(req)
-  console.log("creating agenda",fn)
+  dbg.log("creating agenda",fn)
   
   await fs.writeFile(fn, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
-    console.log('The file has been saved!',req.body);
+    dbg.log('The file has been saved!',req.body);
   })
   res.send()
 })
 
 app.get('/agendaNames',(req,res)=>{
-  console.log("listing agenda dir",appPaths.getConf().agendasFolder)
+  dbg.log("listing agenda dir",appPaths.getConf().agendasFolder)
   const o = new Array<string>()
   fs.readdir(appPaths.getConf().agendasFolder, function (err, files) {
     //handling error
     if (err) {
-      return console.log('Unable to scan directory: ' + err);
+      return dbg.log('Unable to scan directory: ' + err);
     } 
     //listing all files using forEach
     files.forEach(function (file) {
@@ -163,3 +174,14 @@ app.post("/resetAgendas", async(req,res)=>{
   res.send();
   
 })
+
+
+
+/// serve Vue
+
+import history from 'connect-history-api-fallback'
+app.use(history({}))
+
+app.use(express.static(viewerHTMLBasePath, {
+  etag: false
+}))

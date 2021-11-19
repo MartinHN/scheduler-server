@@ -1,6 +1,6 @@
 import GpioM from 'pigpio'
 import {isPi} from '../sysUtils'
-
+import * as dbg from '../dbg'
 
 class RelayWr{
     pimpl?:any
@@ -15,7 +15,7 @@ class RelayWr{
             this.pimpl.digitalWrite(b?1:0)
         }
         else{
-            console.log('Relay should be',b)
+            dbg.log('Relay should be',b)
         }
     }
 }
