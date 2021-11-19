@@ -7,8 +7,8 @@ export default class ConfFileWatcher{
         
         if(!fs.existsSync(this.confFile)){
             dbg.warn("generating default conf",confFile)
-            this.writeConf(defaultConf);
             fs.mkdirSync(path.dirname(this.confFile), { recursive: true })
+            this.writeConf(defaultConf);
         }
         this.loadConf('init')
         fs.watch(confFile, { encoding: 'utf-8' }, ()=>{this.loadConf('change')});   
