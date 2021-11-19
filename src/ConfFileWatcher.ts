@@ -1,13 +1,14 @@
 import fs from 'fs'
 import * as uConf from './userConf'
 import * as dbg from './dbg'
+import path from 'path'
 export default class ConfFileWatcher{
     constructor(public confFile:string,public cb:(confObj:any)=>void,defaultConf = ({} as any)){
         
         if(!fs.existsSync(this.confFile)){
             dbg.warn("generating default conf",confFile)
             this.writeConf(defaultConf);
-            
+            fs.mkdirSync(path.dirname(this.confFile), { recursive: true })
         }
         this.loadConf('init')
         fs.watch(confFile, { encoding: 'utf-8' }, ()=>{this.loadConf('change')});   
