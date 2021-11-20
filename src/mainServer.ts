@@ -5,7 +5,7 @@ import * as appPaths from './filePaths'
 import fs from 'fs'
 import http from 'http'
 import {OSCServerModule} from './lib/OSCServerModule'
-import { DeviceDic, Groups } from './types/DeviceTypes'
+import { DeviceDic, Groups, newEmptyDevice } from './types/DeviceTypes'
 import { postJSON } from './lib/HTTPHelpers'
 import * as dbg from './dbg'
 import jdiff from 'json-diff';
@@ -14,6 +14,8 @@ import _ from 'lodash'
 
 
 let isInaugurationMode = false;
+
+
 
 export function startMainServer(serverReadyCb){
   advertiseServerDNS()
@@ -30,10 +32,30 @@ export function startMainServer(serverReadyCb){
   
   const pis = listenDNS()
   
+  function updateKnownPi(pi:PiConInfo){
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+    const knownPi = knownDevices[pi.uuid];
+    if(!knownPi){dbg.log("pi known up to date");return;}
+    const props = ['ip','port']
+    let change = false;
+    props.map(p=>{if(knownPi[p]!=pi[p]){
+      knownPi[p] = pi[p]
+      change = true;
+      dbg.warn("known changed prop :",p ,knownPi[p],pi[p] )
+    }})
+    if(change){
+      appPaths.writeFileObj(appFilePaths.knownDevicesFile,knownDevices)
+    }
+  }
   pis.on("open", async  (piUuid) => {
     dbg.log("newPI",piUuid)
-    wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
     const pi  = pis.getPiForUUID(piUuid)
+    if(pi){
+       updateKnownPi(pi)
+    }
+    sendToPi(pi,"/activate",[])
+    wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
     if(await checkEndpointUpToDate(pi)){
       dbg.log("endpoint is up to date")
     }
@@ -92,10 +114,11 @@ export function startMainServer(serverReadyCb){
   function msgFromPi(msg,time,info){
     const pi = pis.getPiForIP(info.address)
     if(pi){
-      if(msg && msg.address!="/rssi")
-      dbg.log(">>>>>>> from pi",msg )
-      const toWeb = {uuid:pi.uuid,type:"resp",msg};
-      wsServer.broadcast(toWeb)
+      if(msg){
+        if( msg.address!="/rssi"){dbg.log(">>>>>>> from pi",msg )}
+        const toWeb = {uuid:pi.uuid,type:"resp",msg};
+        wsServer.broadcast(toWeb)
+      }
     }
   }
   

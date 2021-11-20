@@ -122,6 +122,14 @@ app.get('/info',(req,res)=>{
 })
 
 
+app.get('/time',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  const to = {localTime:Date().toString(),utcTime:new Date().toUTCString()}
+  dbg.log("getting time",to)
+  res.send(to);
+})
+
+
 
 app.post('/post/info',async (req,res)=>{
   uConf.setRW(true)

@@ -9,7 +9,7 @@ class AudioPlayer{
     init(){
             this.udpPort=new osc.UDPPort({
             localAddress: "0.0.0.0",
-            localPort: 7777,// 7777,//this.msgCb ? port : undefined,
+            localPort: 0,// 7777,//this.msgCb ? port : undefined,
             // multicast,
             // multicastMembership: membership,
             remoteAddress: audioPlayerIp,
@@ -23,6 +23,7 @@ class AudioPlayer{
     const msg = {address,args:args===undefined?[]:args}
     this.udpPort.send(msg,audioPlayerIp,audioPlayerPort);
     }
+    
     activate(b:boolean){
         dbg.log("act",b)
         if(b){

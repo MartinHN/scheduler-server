@@ -46,6 +46,15 @@ export function getFileObj(p:string){
     return undefined
 }
 
+export function writeFileObj(p:string,data:any){
+    try {
+        fs.writeFileSync(p,JSON.stringify(data,null,2),{ encoding: 'utf-8' })
+    } catch (error) {
+        dbg.error("can't parse file",p,error)
+    }
+    return undefined
+}
+
 
 function initFolders(){
      try{

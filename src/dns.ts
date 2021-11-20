@@ -6,7 +6,7 @@ import * as dbg from './dbg'
 import conf from './config'
 import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
-
+import jdiff from 'json-diff';
 export interface PiConInfo{
   uuid:string;
   deviceName:string;
@@ -15,21 +15,27 @@ export interface PiConInfo{
   caps:string[]
 } 
 
+
 interface ServiceEP{service:RemoteService,lastT:Date,uuid:string}
+
+function piFromService(uuid:string,service:RemoteService):PiConInfo{
+  return {uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:(service.txt["caps"] || "").split(",")}
+}
+
 class Model extends EventEmitter{
   availableRPI = {} as {[key:string]:ServiceEP}
   getAvailablePis() : PiConInfo[]{
     const  res :PiConInfo[]= []
     for(const [k,v] of Object.entries(this.availableRPI)){
-      res.push(this.piFromServiceEP(v));
+      res.push(piFromService(k,v.service));
     }
     return res;
   }
   
   getPiForUUID(uuid:string):PiConInfo | undefined{
-    const serviceEP = Object.values(this.availableRPI).find(p=>{return this.piFromServiceEP(p).uuid===uuid})
+    const serviceEP = Object.values(this.availableRPI).find(p=>{return p.uuid===uuid})
     if(serviceEP){
-      return this.piFromServiceEP(serviceEP);
+      return piFromService(serviceEP.uuid,serviceEP.service);
     }
     dbg.error(">>>>>>>>> no service found for uuid",uuid)
   }
@@ -37,13 +43,11 @@ class Model extends EventEmitter{
   getPiForIP(ip:string){
     const serviceEP = Object.values(this.availableRPI).find(p=>{return p.service.addresses.includes(ip)})
     if(serviceEP){
-      return this.piFromServiceEP(serviceEP);
+      return piFromService(serviceEP.uuid,serviceEP.service);
     }
     dbg.error(">>>>>>>>> no service found for ip ",ip)
   }
-  piFromServiceEP(v:ServiceEP):PiConInfo{
-    return {deviceName:v.service.host,ip:v.service.addresses[0],port:v.service.port,uuid:v.uuid,caps:(v.service.txt["caps"] || "").split(",")}
-  }
+
 }
 const model = new Model()
 const bonjour = bonjourM()
@@ -69,7 +73,7 @@ export function  listenDNS():Model{
   //     })
   // },3000);
   
-  const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'}, function (service) {
+  const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'},  (service)=> {
     
     let uuid = service.txt["uuid"];
     
@@ -79,12 +83,27 @@ export function  listenDNS():Model{
     }
     if(!model.availableRPI[uuid]){
       model.availableRPI[uuid] = {service,lastT:new Date(),uuid}
-      dbg.warn('Found a Raspestrio endpoint:',JSON.stringify(service),JSON.stringify(model.getPiForUUID(uuid)))
+      dbg.warn('Found a Raspestrio endpoint:', uuid)
+      dbg.log(JSON.stringify(service))
+      dbg.log(JSON.stringify(model.getPiForUUID(uuid)))
       model.emit("open",uuid)
     }
     else{
+
+      model.availableRPI[uuid].lastT = new Date()
+      
+      
+      const regPi = piFromService(uuid,model.availableRPI[uuid].service)
+      const announcedPi = piFromService(uuid,service)
+      if( jdiff.diff(regPi,announcedPi)){
+        dbg.warn("service updated", jdiff.diffString(regPi,announcedPi))
+        model.emit("close",uuid)
+        model.availableRPI[uuid].service = service;
+        model.emit("open",uuid)
+
+      }
       // dbg.log('Pingfor :',uuid)
-      model.availableRPI[uuid].lastT = new Date();
+
       
     }
     
