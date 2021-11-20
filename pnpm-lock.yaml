@@ -8,6 +8,7 @@ specifiers:
   '@types/ws': ^7.4.6
   bonjour: ^3.5.0
   chokidar: ^3.5.2
+  connect-history-api-fallback: ^1.6.0
   cors: ^2.8.5
   express: ^4.17.1
   json-diff: ^0.5.4
@@ -23,6 +24,7 @@ specifiers:
 dependencies:
   bonjour: 3.5.0
   chokidar: 3.5.2
+  connect-history-api-fallback: 1.6.0
   cors: 2.8.5
   express: 4.17.1
   json-diff: 0.5.4
@@ -429,6 +431,11 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: false
     optional: true
+
+  /connect-history-api-fallback/1.6.0:
+    resolution: {integrity: sha512-e54B99q/OUoH64zYYRf3HBP5z24G38h5D3qXu23JGRoigpX5Ss4r9ZnDk3g0Z8uQC2x2lPaJ+UlWBc1ZWBWdLg==}
+    engines: {node: '>=0.8'}
+    dev: false
 
   /console-control-strings/1.1.0:
     resolution: {integrity: sha1-PXz0Rk22RG6mRL9LOVB/mFEAjo4=}
