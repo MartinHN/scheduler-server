@@ -37,7 +37,7 @@ export function startMainServer(serverReadyCb){
     const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
     const knownPi = knownDevices[pi.uuid];
     if(!knownPi){dbg.log("pi known up to date");return;}
-    const props = ['ip','port']
+    const props = ['ip','port','caps']
     let change = false;
     props.map(p=>{if(knownPi[p]!=pi[p]){
       knownPi[p] = pi[p]

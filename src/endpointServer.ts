@@ -173,7 +173,11 @@ function registerConfFile(app,capName:string,capFile:string){
 }
 
 const oscModule = new OSCSenderModule(endp.epBasePath+"/osc.json");
-registerConfFile(app,"osc",oscModule.confFile);
+registerConfFile(app,"osc1",oscModule.confFile);
+
+const oscModule2 = new OSCSenderModule(endp.epBasePath+"/osc2.json");
+registerConfFile(app,"osc2",oscModule2.confFile);
+
 
 function initModules(){
   audioPlayer.init();
@@ -184,6 +188,7 @@ function activate(active:boolean){
   audioPlayer.activate(active);
   relay.activate(active)
   oscModule.activate(active);
+  oscModule2.activate(active);
 }
 
 
@@ -285,7 +290,7 @@ export function startEndpointServer(epConf:{endpointName?:string}){
   })
   const bonjour = bonjourM()
   // advertise an localEndpoint server
-  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc,html"} })
+  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:8080"} })
 
   startSchedule((state)=>{
     dbg.log(">>>>> scheduling State is",state?"on":"off")

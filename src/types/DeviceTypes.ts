@@ -1,6 +1,6 @@
 /// ////////
 // Devices
-import { CapTypeName } from './CapTypes'
+import { CapTypeInstance, CapTypeName } from './CapTypes'
 
 export interface Device {
   uuid:string;
@@ -9,7 +9,7 @@ export interface Device {
   ip:string;
   group:string;
   port:number;
-  caps:CapTypeName[]
+  caps:{[id:string]:CapTypeInstance}
   rssi:string;
   activate:boolean;
 }

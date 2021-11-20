@@ -7,21 +7,43 @@ import conf from './config'
 import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
 import jdiff from 'json-diff';
+import { CapTypeInstance, CapTypeName } from './types/CapTypes';
 export interface PiConInfo{
   uuid:string;
   deviceName:string;
   ip:string;
   port:number;
-  caps:string[]
+  caps:{[id:string]:CapTypeInstance}
 } 
 
 
 interface ServiceEP{service:RemoteService,lastT:Date,uuid:string}
 
 function piFromService(uuid:string,service:RemoteService):PiConInfo{
-  return {uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:(service.txt["caps"] || "").split(",")}
+  return {uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:capsFromSrvTxt(service.txt["caps"] || "")}
 }
 
+function capsFromSrvTxt(t:string) : {[id:string]:CapTypeInstance}{
+ const caps =  t.split(",");
+ const res = {} as {[id:string]:CapTypeInstance}
+ caps.map(e=>{
+   const spl = e.split('=');
+   if(spl.length==2){
+    let type = spl[1]
+    let port = 0
+    if(spl[1].includes(':')){
+       const ln = spl[1].split(':')
+       type = ln[0]
+       port = parseInt(ln[1])
+    }
+    res[spl[0]]={type:type as CapTypeName,port:port}
+   }
+  else{
+    dbg.error('wrong format for cap',e)
+  }
+})
+ return res;
+}
 class Model extends EventEmitter{
   availableRPI = {} as {[key:string]:ServiceEP}
   getAvailablePis() : PiConInfo[]{

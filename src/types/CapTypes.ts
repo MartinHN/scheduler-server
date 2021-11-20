@@ -1,6 +1,8 @@
-
 export type CapTypeName = 'html' | 'osc' // | 'relay' | 'audio'
-
+export interface CapTypeInstance{
+  type:CapTypeName
+  port?:number
+}
 // OSC
 export interface OSCTrigMessage{
   address:string
