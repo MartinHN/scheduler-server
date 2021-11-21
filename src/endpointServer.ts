@@ -308,7 +308,7 @@ export function startEndpointServer(epConf:{endpointName?:string}){
   })
   const bonjour = bonjourM()
   // advertise an localEndpoint server
-  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:8080"} })
+  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
 
   startSchedule((state)=>{
     dbg.log(">>>>> scheduling State is",state?"on":"off")

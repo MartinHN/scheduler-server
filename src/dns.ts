@@ -24,6 +24,7 @@ function piFromService(uuid:string,service:RemoteService):PiConInfo{
 }
 
 function capsFromSrvTxt(t:string) : {[id:string]:CapTypeInstance}{
+  if(!t) {return {}}
  const caps =  t.split(",");
  const res = {} as {[id:string]:CapTypeInstance}
  caps.map(e=>{
