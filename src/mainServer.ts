@@ -39,10 +39,10 @@ export function startMainServer(serverReadyCb){
     if(!knownPi){dbg.log("pi known up to date");return;}
     const props = ['ip','port','caps','deviceName']
     let change = false;
-    props.map(p=>{if(knownPi[p]!=pi[p]){
+    props.map(p=>{if(jdiff.diff(knownPi[p],pi[p])){
       knownPi[p] = pi[p]
       change = true;
-      dbg.warn("known changed prop :",p ,knownPi[p],pi[p] )
+      dbg.warn("known changed prop :",p ,jdiff.diffString(knownPi[p],pi[p]) )
     }})
     if(change){
       appPaths.writeFileObj(appFilePaths.knownDevicesFile,knownDevices)
