@@ -15,6 +15,11 @@ export function getHostName(){
 
 
 export function setHostName(newhost:string){
+    dbg.warn('hostname will be set to' ,newhost)
+    if(!isPi)
+    {
+        return
+    }
     const hostn = getHostName();
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hosts`);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hostname`);

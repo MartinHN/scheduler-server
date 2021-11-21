@@ -122,12 +122,6 @@ app.get('/info',(req,res)=>{
 })
 
 
-app.get('/time',(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  const to = {localTime:Date().toString(),utcTime:new Date().toUTCString()}
-  dbg.log("getting time",to)
-  res.send(to);
-})
 
 
 
@@ -141,9 +135,19 @@ app.post('/post/info',async (req,res)=>{
   uConf.setRW(false)
 })
 
+app.get('/time',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+  const to = {localTime:Date().toString(),utcTime:new Date().toUTCString()}
+  dbg.log("getting time",to)
+  res.send(to);
+})
 
-restGetSetConf("nickName");
-restGetSet("hostName",sys.getHostName,sys.setHostName);
+// restGetSetConf("nickName");
+// restGetSet("hostName",sys.getHostName,(n)=>{
+//   uConf.setRW(true)
+//   sys.setHostName(n);
+//   uConf.setRW(false)
+// });
 
 
 //actions
@@ -206,21 +210,35 @@ function handleMsg(msg,time,info: {address:string,port:number}){
   else if((msg.address == "/activate" )){
     if(msg.args.length>0)
       activate(msg.args[0]?true:false)
-      else
+    else
         epOSC.send("/activate",[isActive?1:0],info.address,info.port)
 
-    }
+  }
 
-    else if((msg.address == "/dateShouldActivate" )){
-      let dateToCheck = new Date()
-      if(msg.args.length===3)
-      dateToCheck = new Date(msg.args[0],msg.args[1],msg.args[2],msg.args[3],msg.args[4])
-        
-      const willBeRunning = willBeRunningForDate(dateToCheck)
-      epOSC.send("/dateShouldActivate",[willBeRunning?1:0],info.address,info.port)
-  
-    }
+  else if((msg.address == "/dateShouldActivate" )){
+    let dateToCheck = new Date()
+    if(msg.args.length===3)
+    dateToCheck = new Date(msg.args[0],msg.args[1],msg.args[2],msg.args[3],msg.args[4])
+      
+    const willBeRunning = willBeRunningForDate(dateToCheck)
+    epOSC.send("/dateShouldActivate",[willBeRunning?1:0],info.address,info.port)
 
+  }
+  else if(msg.address == "/hostName"){
+    if(msg.args.length === 1){
+      const n = msg.args[0]
+      uConf.setRW(true)
+        sys.setHostName(n);
+        uConf.setRW(false)
+    }
+    else{
+      dbg.error("wrong args num for hostname")
+    }
+  }
+
+  else if(msg.address == "/reboot"){
+     sys.reboot();
+  }
     
     // let schema;
     // try{

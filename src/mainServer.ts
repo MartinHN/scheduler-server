@@ -37,7 +37,7 @@ export function startMainServer(serverReadyCb){
     const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
     const knownPi = knownDevices[pi.uuid];
     if(!knownPi){dbg.log("pi known up to date");return;}
-    const props = ['ip','port','caps']
+    const props = ['ip','port','caps','deviceName']
     let change = false;
     props.map(p=>{if(knownPi[p]!=pi[p]){
       knownPi[p] = pi[p]
@@ -66,7 +66,7 @@ export function startMainServer(serverReadyCb){
   })
   
   async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){
-    dbg.log(JSON.stringify(pi))
+    dbg.log("send event to pi:",addr)
     const deviceURL = pi.ip;
     const devicePORT = pi.port;
     oscSender.send(addr,args,deviceURL,devicePORT)
