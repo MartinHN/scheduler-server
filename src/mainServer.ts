@@ -66,9 +66,9 @@ export function startMainServer(serverReadyCb){
   })
   
   async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){
-    if(addr !== "/rssi"){dbg.log("send event to pi:",addr)}
     const deviceURL = pi.ip;
     const devicePORT = pi.port;
+    if(addr !== "/rssi"){dbg.log("send event to pi:",pi.ip,pi.port,addr)}
     oscSender.send(addr,args,deviceURL,devicePORT)
   }
   

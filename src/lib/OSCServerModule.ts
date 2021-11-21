@@ -163,6 +163,9 @@ export class OSCServerModule {
         }
         this.udpPort.send({address, args},remoteAddr,remotePort)
       }
+      else{
+        dbg.warn("[oscServer] not connected")
+      }
     }
 
     get localPort(){

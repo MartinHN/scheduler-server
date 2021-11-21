@@ -40,6 +40,7 @@ export default class OSCSenderModule{
     }
     
     sendMessages(messL:OSCTrigMessage[]){
+        try{
         if(this.udpPort){
             const  ip = this.confData.ip;
             const port = this.confData.port;
@@ -48,7 +49,11 @@ export default class OSCSenderModule{
                 dbg.log('[oscSender] sending msg',JSON.stringify(msg));
                 this.udpPort.send(msg,ip,port);
             })
-        }   
+        }  
+    }
+    catch(e){
+        dbg.error("[oscSender] cant send osc",e)
+    } 
     }
     parseArgList(l){
         if(!l)return []
