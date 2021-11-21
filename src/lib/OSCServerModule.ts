@@ -158,8 +158,9 @@ export class OSCServerModule {
     
     send(address, args,remoteAddr,remotePort) {
       if (this.udpPort.isConnected) {
-        if(address!="/announce")
-        dbg.log('sending msg',{address, args},' to',remoteAddr ,remotePort)
+        if(address!="/rssi" ){
+         dbg.log('sending msg',{address, args},' to',remoteAddr ,remotePort)
+        }
         this.udpPort.send({address, args},remoteAddr,remotePort)
       }
     }

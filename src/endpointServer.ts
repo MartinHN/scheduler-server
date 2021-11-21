@@ -203,11 +203,11 @@ import {OSCServerModule} from './lib/OSCServerModule'
 
 /// describe basic functionality of endpoints
 function handleMsg(msg,time,info: {address:string,port:number}){
-  dbg.log("endpoint rcvd",info.address,info.port,msg.address)
-  if(msg.address == "/rssi"){
+  if(msg.address !== "/rssi")dbg.log("endpoint rcvd",info.address,info.port,msg.address)
+  if(msg.address === "/rssi"){
     epOSC.send("/rssi",[sys.getRSSI()],info.address,info.port)
   }
-  else if((msg.address == "/activate" )){
+  else if((msg.address === "/activate" )){
     if(msg.args.length>0)
       activate(msg.args[0]?true:false)
     else
@@ -215,7 +215,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
 
   }
 
-  else if((msg.address == "/dateShouldActivate" )){
+  else if((msg.address === "/dateShouldActivate" )){
     let dateToCheck = new Date()
     if(msg.args.length===3)
     dateToCheck = new Date(msg.args[0],msg.args[1],msg.args[2],msg.args[3],msg.args[4])
@@ -224,7 +224,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     epOSC.send("/dateShouldActivate",[willBeRunning?1:0],info.address,info.port)
 
   }
-  else if(msg.address == "/hostName"){
+  else if(msg.address === "/hostName"){
     if(msg.args.length === 1){
       const n = msg.args[0]
       uConf.setRW(true)
@@ -236,7 +236,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     }
   }
 
-  else if(msg.address == "/reboot"){
+  else if(msg.address === "/reboot"){
      sys.reboot();
   }
     

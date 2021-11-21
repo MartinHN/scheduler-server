@@ -66,19 +66,21 @@ export function startMainServer(serverReadyCb){
   })
   
   async function sendToPi(pi:PiConInfo,addr:string,args?:any[]){
-    dbg.log("send event to pi:",addr)
+    if(addr !== "/rssi"){dbg.log("send event to pi:",addr)}
     const deviceURL = pi.ip;
     const devicePORT = pi.port;
     oscSender.send(addr,args,deviceURL,devicePORT)
   }
   
   wsServer.onMessage = (ws,msg)=>{
-    dbg.log('[wsServer] Received Message: ' + JSON.stringify(msg));
     if(!msg){
       dbg.error("[wsServer] empty msg")
       return;
     }
     const {addr,args} = msg;
+    if(!(addr==="deviceEvent" && args.event && args.event.type === "rssi")){
+      dbg.log('[wsServer] Received Message: ' + JSON.stringify(msg));
+    }
     if(addr == "deviceEvent"){
       const pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
       if(!pi){dbg.warn('pi not found',args,JSON.stringify(pis.getAvailablePis()));return;}
