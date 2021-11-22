@@ -27,7 +27,7 @@ class AudioPlayer{
     activate(b:boolean){
         dbg.log("act",b)
         if(b){
-            this.sendOSC("/play")
+            this.sendOSC("/loop")
         }
         else
         this.sendOSC("/stop")
