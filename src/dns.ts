@@ -20,7 +20,7 @@ export interface PiConInfo{
 interface ServiceEP{service:RemoteService,lastT:Date,uuid:string}
 
 function piFromService(uuid:string,service:RemoteService):PiConInfo{
-  return {uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:capsFromSrvTxt(service.txt["caps"] || "")}
+  return JSON.parse(JSON.stringify({uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:capsFromSrvTxt(service.txt["caps"] || "")}))
 }
 
 function capsFromSrvTxt(t:string) : {[id:string]:CapTypeInstance}{
@@ -87,7 +87,7 @@ export function advertiseServerDNS(){
 export function  listenDNS():Model{
   // browse for all http services
   
-  const pingInterval = 1000;
+  const pingInterval = 5000;
   
   
   //   setInterval(()=>{
@@ -125,7 +125,7 @@ export function  listenDNS():Model{
         model.emit("open",uuid)
 
       }
-      // dbg.log('Pingfor :',uuid)
+      dbg.log('Pingfor :',uuid)
 
       
     }
@@ -137,15 +137,15 @@ export function  listenDNS():Model{
   setInterval(()=>{
     const curD = new Date();
     for(const [k,v] of Object.entries(model.availableRPI)){
-      if((curD.getTime() - v.lastT.getTime()) >= pingInterval+3000 ){
+      if((curD.getTime() - v.lastT.getTime()) >= pingInterval+6000 ){
         dbg.warn('disconnected',k,(curD.getTime() - v.lastT.getTime()) )
         const old = model.availableRPI[k];
-        delete model.availableRPI[k]
+         delete model.availableRPI[k] 
         model.emit("close",old)
       }
     }
 
-    // dbg.log("updateMDNS")
+    dbg.log("updateMDNS")
     // force callback
     for(const s of Object.values(model.availableRPI)){
       (query as any)._removeService(s.service.fqdn);

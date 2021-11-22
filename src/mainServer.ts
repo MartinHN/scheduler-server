@@ -127,7 +127,6 @@ export function startMainServer(serverReadyCb){
   async function checkRemoteResource(p:PiConInfo,addr:string,tgtObj:any){
     const appFilePaths = appPaths.getConf();
     const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
-    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
     
     const curDev = knownDevices[p.uuid]
     if(!curDev){

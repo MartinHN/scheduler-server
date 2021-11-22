@@ -175,11 +175,39 @@ app.post("/resetAgendas", async(req,res)=>{
   
 })
 
+app.get('/state',(req,res)=>{
+  res.setHeader('Content-Type', 'application/json');
+
+  const appFilePaths = appPaths.getConf();
+  const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+  const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
+  const agendas =fs.readdirSync(appPaths.getConf().agendasFolder).map(e=>{return {filename:e,data:appPaths.getFileObj(appPaths.getConf().agendasFolder+e)}})
+  const state={knownDevices,agendas,groups};
+  dbg.warn("getting state",state)
+  res.json(state)
+})
+
+
+app.post('/state',async (req,res)=>{
+  const state = req.body;
+  const appFilePaths = appPaths.getConf();
+  if(!state || !state.knownDevices || !state.groups || !state.agendas){
+    return false;
+  }
+  appPaths.writeFileObj(appFilePaths.knownDevicesFile,state.knownDevices);
+  appPaths.writeFileObj(appFilePaths.knownDevicesFile,state.knownDevices);
+  for(const [k,v] of Object.entries(state.agendas)){
+    const fn = appPaths.getConf().agendasFolder+ k;
+    appPaths.writeFileObj(fn,v);
+  }
+  res.send()
+})
 
 
 /// serve Vue
 
 import history from 'connect-history-api-fallback'
+import { DeviceDic, Groups } from './types';
 app.use(history({}))
 
 app.use(express.static(viewerHTMLBasePath, {

@@ -1,3 +1,4 @@
+import * as sys from './sysUtils';
 
 
 function hasArg(n:string){
@@ -9,7 +10,7 @@ function hasArg(n:string){
 const isMainServer = hasArg('--srv');//uConf.getVariable("isMainServer");
 const startClient = hasArg('-c');
 const lastEl = process.argv[process.argv.length-1]
-let endpointName = "nodeCli";
+let endpointName = sys.getHostName() || "nodeCli";
 if(!lastEl.startsWith('-')){
   endpointName = lastEl;
 } 

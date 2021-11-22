@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "watch": "nodemon --exec node --es-module-specifier-resolution=node --loader ts-node/esm ./src/index.ts",
-    "watch:cli": "npm run watch -- -c tstName",
+    "watch:cli": "npm run watch -- -c",
     "watch:srv": "npm run watch -- --srv ",
     "start": "node --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "debug": "node --inspect --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
