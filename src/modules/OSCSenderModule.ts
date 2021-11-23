@@ -14,6 +14,7 @@ export default class OSCSenderModule{
     confWatcher:ConfFileWatcher;
     udpPort:any;
     confData:OSCCap
+    _timeouts = {} as {[id:string]:any}
     constructor(public confFile:string){
         this.confWatcher = new ConfFileWatcher(confFile,obj=>{this.parseConf(obj)},{});
     }
@@ -45,9 +46,23 @@ export default class OSCSenderModule{
             const  ip = this.confData.ip;
             const port = this.confData.port;
             messL.map(m=>{
-                const msg = {address:m.address,args:this.parseArgList(m.args)}
+                const spl = m.address.split(':')
+                const args = this.parseArgList(m.args)
+                if(spl && spl.length===2){
+                    const trueAddr = spl[1]
+                    const timeDelMs = parseFloat(spl[0])*1000.0
+                    dbg.log("deffering message",timeDelMs)
+                   if( this._timeouts[trueAddr]){
+                       clearTimeout(this._timeouts[trueAddr])
+                   }
+                   this._timeouts[trueAddr] = setTimeout(()=>{this.sendMessages([{address:trueAddr,args}])},timeDelMs)
+                   return;
+                }
+                else{
+                const msg = {address:m.address,args}
                 dbg.log('[oscSender] sending msg',JSON.stringify(msg));
                 this.udpPort.send(msg,ip,port);
+            }
             })
         }  
     }
@@ -78,7 +93,16 @@ export default class OSCSenderModule{
         
         return res;
     }
+
+    clearPendingMsgs(){
+        for(const t of Object.values(this._timeouts)){
+            clearTimeout(t)
+        }
+        this._timeouts = {}
+    }
+
     activate(b:boolean){
+        this.clearPendingMsgs();
         this.sendMessages((b?this.confData.onMessages :this.confData.offMessages) || [])
     }
 }
