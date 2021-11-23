@@ -154,6 +154,7 @@ app.get('/time',(req,res)=>{
 import audioPlayer from './modules/AudioPlayer'
 import relay from'./modules/Relay'
 import OSCSenderModule from './modules/OSCSenderModule'
+import vermuthModule from './modules/VermuthModule'
 
 
 function registerConfFile(app,capName:string,capFile:string){
@@ -185,6 +186,7 @@ registerConfFile(app,"osc2",oscModule2.confFile);
 
 function initModules(){
   audioPlayer.init();
+  vermuthModule.init()
 }
 let isActive = false
 function activate(active:boolean){
@@ -193,6 +195,7 @@ function activate(active:boolean){
   relay.activate(active)
   oscModule.activate(active);
   oscModule2.activate(active);
+  vermuthModule.activate(active);
 }
 
 
