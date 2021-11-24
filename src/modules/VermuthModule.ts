@@ -47,7 +47,7 @@ function isNumeric(str) {
     }
     activate(b:boolean){
        const msg =  {
-            address: '/sequencePlayer/goToStateNamed', args: ['epau'+(b?'_on':'_off'), 5, 1]
+            address: '/sequencePlayer/goToStateNamed', args: ['epau'+(b?'_on':'_off'), 1, 1]
           }
         this.sendMessage(msg)
     }

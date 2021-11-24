@@ -158,7 +158,7 @@ export function startMainServer(serverReadyCb){
           }
           // ...and/or process the entire body here.
         }).on('error',(e)=>{
-          dbg.error("http.con error")
+          dbg.error("http.con dl error")
           reject(e)
         })
       }).on('error',(e)=>{
@@ -198,26 +198,26 @@ export function startMainServer(serverReadyCb){
   }
   
   
-  async function  checkEndpointInfoIsUpToDate(p:PiConInfo){
-    const appFilePaths = appPaths.getConf();
-    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
-    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
+  // async function  checkEndpointInfoIsUpToDate(p:PiConInfo){
+  //   const appFilePaths = appPaths.getConf();
+  //   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+  //   const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
     
-    const curDev = knownDevices[p.uuid]
-    if(!curDev){
-      dbg.error('no known device for pi',p.uuid || p)
-      return false;
-    }
+  //   const curDev = knownDevices[p.uuid]
+  //   if(!curDev){
+  //     dbg.error('no known device for pi',p.uuid || p)
+  //     return false;
+  //   }
     
     
-    return await checkRemoteResource(p,"/info",{niceName:curDev.niceName});
+  //   return await checkRemoteResource(p,"/info",{niceName:curDev.niceName});
     
-  }
+  // }
   
   async function checkEndpointUpToDate(p:PiConInfo){
     
     const agOk=  !! (await checkEndpointAgendaIsUpToDate(p));
-    const infoOk=  !! (await checkEndpointInfoIsUpToDate(p));
+    const infoOk=  true;//!! (await checkEndpointInfoIsUpToDate(p));
     
     return agOk && infoOk;
   }
@@ -242,7 +242,7 @@ export function startMainServer(serverReadyCb){
       }
     }
   }
-  const checkAllEndpointsDbnc = _.debounce(checkAllEndpoints, 300, {})
+  const checkAllEndpointsDbnc = _.debounce(checkAllEndpoints, 2000, {})
   var watcher = chokidar.watch(appPaths.getConf().baseDir, {ignored: /^\./, persistent: true});
   watcher.on("change",(e)=>{dbg.log("chg",e); checkAllEndpointsDbnc()});
   watcher.on("add", checkAllEndpointsDbnc);

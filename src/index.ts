@@ -15,6 +15,7 @@ if(!lastEl.startsWith('-')){
   endpointName = lastEl;
 } 
 
+
 if(isMainServer){
   import('./mainServer').then(mod=>
     mod.startMainServer(()=>{
@@ -24,7 +25,15 @@ if(isMainServer){
 
 
 if(startClient){
+  let targetPort = 0;
+  if(endpointName.includes(":")){
+    const spl = endpointName.split(":")
+    targetPort = parseInt(spl[1])
+    endpointName = spl[0]
+  }
+
   import('./endpointServer').then(mod=>
-    mod. startEndpointServer({endpointName}))
+
+    mod. startEndpointServer({endpointName,endpointPort:targetPort}))
  
 }

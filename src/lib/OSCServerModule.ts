@@ -165,6 +165,7 @@ export class OSCServerModule {
       }
       else{
         dbg.warn("[oscServer] not connected")
+        this.defferReconnect(this.udpPort)
       }
     }
 

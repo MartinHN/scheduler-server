@@ -113,27 +113,27 @@ app.post('/post/agendaFile',async (req,res)=>{
 })
 
 
-app.get('/info',(req,res)=>{
-  res.setHeader('Content-Type', 'application/json');
-  var readable = fs.createReadStream(endp.conf.infoFile);
-  const data =fs.readFileSync(endp.conf.infoFile).toString()
-  dbg.log("getting info",data)
-  readable.pipe(res);
-})
+// app.get('/info',(req,res)=>{
+//   res.setHeader('Content-Type', 'application/json');
+//   var readable = fs.createReadStream(endp.conf.infoFile);
+//   const data =fs.readFileSync(endp.conf.infoFile).toString()
+//   dbg.log("getting info",data)
+//   readable.pipe(res);
+// })
 
 
 
 
 
-app.post('/post/info',async (req,res)=>{
-  uConf.setRW(true)
-  await fs.writeFile(endp.conf.infoFile, JSON.stringify(req.body,null,2), (err) => {
-    if (err) throw err;
-    dbg.log('The info file has been saved!',req.body);
-  })
-  res.send()
-  uConf.setRW(false)
-})
+// app.post('/post/info',async (req,res)=>{
+//   uConf.setRW(true)
+//   await fs.writeFile(endp.conf.infoFile, JSON.stringify(req.body,null,2), (err) => {
+//     if (err) throw err;
+//     dbg.log('The info file has been saved!',req.body);
+//   })
+//   res.send()
+//   uConf.setRW(false)
+// })
 
 app.get('/time',(req,res)=>{
   res.setHeader('Content-Type', 'application/json');
@@ -202,6 +202,7 @@ function activate(active:boolean){
 
 /// osc
 import {OSCServerModule} from './lib/OSCServerModule'
+import ConfFileWatcher from './ConfFileWatcher';
 
 
 /// describe basic functionality of endpoints
@@ -296,13 +297,15 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 
 
 
-export function startEndpointServer(epConf:{endpointName?:string}){
+export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:number}){
+  const hasCustomPort= !!epConf.endpointPort;
+  const epPort = hasCustomPort?epConf.endpointPort : conf.endpointPort;
   initModules();
   const httpProto = conf.usehttps?https:http
   const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
-  server.listen(conf.endpointPort, () =>
-  dbg.log(`[endpoint OSC] will listen on port ${conf.endpointPort}!`));
-  epOSC.connect("0.0.0.0",conf.endpointPort)
+  server.listen(epPort, () =>
+  dbg.log(`[endpoint OSC] will listen on port ${epPort}!`));
+  epOSC.connect("0.0.0.0",epPort)
   
   
   epOSC.udpPort.on('ready',()=>{
@@ -311,7 +314,7 @@ export function startEndpointServer(epConf:{endpointName?:string}){
   })
   const bonjour = bonjourM()
   // advertise an localEndpoint server
-  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: conf.endpointPort,txt:{uuid:"lumestrio@"+sys.getMac(),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
+  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
 
   startSchedule((state)=>{
     dbg.log(">>>>> scheduling State is",state?"on":"off")

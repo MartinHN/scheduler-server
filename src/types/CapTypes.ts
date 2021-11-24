@@ -24,7 +24,7 @@ loopTime:number;
 
 export function getDefaultOSCCap (f?:any):OSCCap {
   if (f === undefined)f = {} as OSCCap
-  return { ip: f.ip || '127.0.0.1', port: f.port || 0, onMessages: f.onMessages || [], offMessages: f.offMessages || [] ,loopTime:f.loopTime || 0}
+  return { ip: f.ip || '127.0.0.1', port: f.port || 0, onMessages: f.onMessages || [], offMessages: f.offMessages || [], loopTime: f.loopTime || 0 }
 }
 
 // HTML

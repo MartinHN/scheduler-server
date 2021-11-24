@@ -73,10 +73,10 @@ class Model extends EventEmitter{
 
 }
 const model = new Model()
-const bonjour = bonjourM()
 
 export function advertiseServerDNS(){
   
+  const bonjour = bonjourM()
 
   // advertise an HTTP server 
   bonjour.publish({ name: hostname(), host:'tinmar.local',type: 'http',protocol:'tcp', port: conf.serverPort })
@@ -87,7 +87,7 @@ export function advertiseServerDNS(){
 export function  listenDNS():Model{
   // browse for all http services
   
-  const pingInterval = 5000;
+  const pingInterval = 2000;
   
   
   //   setInterval(()=>{
@@ -95,9 +95,9 @@ export function  listenDNS():Model{
   //       dbg.log('service',service)
   //     })
   // },3000);
-  
-  const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'},  (service)=> {
-    
+  const bonjour = bonjourM()
+  const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'},  (_service)=> {
+    const service = JSON.parse(JSON.stringify(_service))
     let uuid = service.txt["uuid"];
     
     if(uuid === undefined){
@@ -105,14 +105,15 @@ export function  listenDNS():Model{
       uuid = [service.name,service.port].join('_');
     }
     if(!model.availableRPI[uuid]){
-      model.availableRPI[uuid] = {service,lastT:new Date(),uuid}
+      model.availableRPI[uuid] = {service:service,lastT:new Date(),uuid}
       dbg.warn('Found a Raspestrio endpoint:', uuid)
       dbg.log(JSON.stringify(service))
       dbg.log(JSON.stringify(model.getPiForUUID(uuid)))
       model.emit("open",uuid)
     }
     else{
-
+      dbg.log('Pingfor :',uuid)
+      
       model.availableRPI[uuid].lastT = new Date()
       
       
@@ -125,7 +126,6 @@ export function  listenDNS():Model{
         model.emit("open",uuid)
 
       }
-      dbg.log('Pingfor :',uuid)
 
       
     }
@@ -137,7 +137,7 @@ export function  listenDNS():Model{
   setInterval(()=>{
     const curD = new Date();
     for(const [k,v] of Object.entries(model.availableRPI)){
-      if((curD.getTime() - v.lastT.getTime()) >= pingInterval+6000 ){
+      if((curD.getTime() - v.lastT.getTime()) >= pingInterval+10000 ){
         dbg.warn('disconnected',k,(curD.getTime() - v.lastT.getTime()) )
         const old = model.availableRPI[k];
          delete model.availableRPI[k] 
