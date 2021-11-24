@@ -24,7 +24,7 @@ export function startMainServer(serverReadyCb){
   const wsServer = startWS(server)
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
-  oscSender.connect()
+  oscSender.connect("0.0.0.0",0)
   
   wsServer.on("connection",(w)=>{
     wsServer.sendTo(w,{type:"connectedDeviceList",data:pis.getAvailablePis()})
