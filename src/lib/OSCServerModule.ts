@@ -56,7 +56,7 @@ export class OSCServerModule {
     
     const udpPort = new osc.UDPPort({
       localAddress: localIp,  // broadcast//0.0.0.0",
-      localPort: this.msgCb ? port : undefined,
+      localPort: this.msgCb ? port : 0,
       multicast,
       multicastMembership: membership,
       remoteAddress: ip,
@@ -113,6 +113,7 @@ export class OSCServerModule {
     }
     defferReconnect(port) {
       if(this.disconnected){
+        console.log("[OSCServerModule] disconnected")
         return;
       }
       clearTimeout(port.timeout)
