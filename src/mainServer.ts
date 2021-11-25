@@ -222,10 +222,10 @@ export function startMainServer(serverReadyCb){
     
     const isUpToDate = agOk && infoOk
     if(isUpToDate){
-      dbg.log("endpoint is up to date",pi.deviceName,pi.uuid)
+      dbg.log("endpoint already up to date",pi.deviceName,pi.uuid)
     }
     else{
-      dbg.error("endpoint NOT up to date",pi.deviceName,pi.uuid)
+      dbg.warn("endpoint has been updated",pi.deviceName,pi.uuid)
     }
     return isUpToDate;
   }
