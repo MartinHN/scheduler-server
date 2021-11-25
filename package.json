@@ -12,6 +12,7 @@
     "debug": "node --inspect --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "build": "tsc",
     "run": "node --experimental-modules --es-module-specifier-resolution=node  out/index.js",
+    "runQLC": "node --experimental-modules --es-module-specifier-resolution=node  out/listenMadMapper.js",
     "test": "node --experimental-modules --loader ts-node/esm ./tests/bonjourInstance.ts",
     "buildForAndroid": "tsc --project tsconfig.android.json",
     "package": "./package.sh"
