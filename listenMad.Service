@@ -1,0 +1,16 @@
+ [Unit]
+ Description=listenMad
+ After=multi-user.target
+
+ [Service]
+ Type=simple
+ User=pi
+ Restart=on-failure
+ RestartSec=5s
+ WorkingDirectory=/home/pi/raspestrio/server
+ ExecStart=sudo /bin/bash listenMad.sh
+ StandardOutput=journal
+ StandardError=inherit
+
+ [Install]
+ WantedBy=multi-user.target
