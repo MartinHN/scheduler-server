@@ -135,6 +135,7 @@ app.delete('/agendas',(req,res)=>{
   if(fs.existsSync(fn)){
     fs.unlinkSync(fn);
   }
+  res.send();
 })
 
 app.post('/agendas',async (req,res)=>{
