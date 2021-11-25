@@ -1,7 +1,7 @@
 import {OSCServerModule} from './lib/OSCServerModule'
 
 const mmPort = 12000;
-const qlcPort = 9009;
+const qlcPort = 7700;
 
 let lastTime = 0;
 
@@ -26,8 +26,11 @@ const mmOSC= new OSCServerModule((msg,time,info)=>{
 });
 
 
-function go(){
-  mmOSC.send("/go",[1],"0.0.0.0",qlcPort)
+ function go() {
+  mmOSC.send("/stop", [1], "0.0.0.0", qlcPort);
+  setTimeout(()=>{
+      mmOSC.send("/go", [1], "0.0.0.0", qlcPort);
+  },100)
 }
 
 
