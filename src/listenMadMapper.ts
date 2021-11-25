@@ -12,9 +12,9 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     const newTime = parseFloat( msg.args[0])
     const dt = Math.abs(newTime - lastTime);
     const isInf = newTime < lastTime;
-    if(newTime-lastTime>10){console.log("newTime",newTime);}
+    if(newTime-lastTime>.01){console.log("newTime",newTime);}
     lastTime = newTime;
-    if(isInf && dt >10){
+    if(isInf && dt >.1){
       go();
     }
   }
