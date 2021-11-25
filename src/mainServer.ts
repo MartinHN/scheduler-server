@@ -52,13 +52,13 @@ export function startMainServer(serverReadyCb){
     dbg.log("newPI",piUuid)
     const pi  = pis.getPiForUUID(piUuid)
     if(pi){
-       updateKnownPi(pi)
+      updateKnownPi(pi)
     }
     sendToPi(pi,"/activate",[])
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
-    if(await checkEndpointUpToDate(pi)){
-      dbg.log("endpoint is up to date")
-    }
+    await checkEndpointUpToDate(pi);
+    
+    
   })
   pis.on("close",(pi)=>{
     dbg.log("no more pi",pi.uuid)
@@ -202,27 +202,35 @@ export function startMainServer(serverReadyCb){
   //   const appFilePaths = appPaths.getConf();
   //   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
   //   const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
-    
+  
   //   const curDev = knownDevices[p.uuid]
   //   if(!curDev){
   //     dbg.error('no known device for pi',p.uuid || p)
   //     return false;
   //   }
-    
-    
+  
+  
   //   return await checkRemoteResource(p,"/info",{niceName:curDev.niceName});
-    
+  
   // }
   
-  async function checkEndpointUpToDate(p:PiConInfo){
+  async function checkEndpointUpToDate(pi:PiConInfo){
     
-    const agOk=  !! (await checkEndpointAgendaIsUpToDate(p));
+    const agOk=  !! (await checkEndpointAgendaIsUpToDate(pi));
     const infoOk=  true;//!! (await checkEndpointInfoIsUpToDate(p));
     
-    return agOk && infoOk;
+    
+    const isUpToDate = agOk && infoOk
+    if(isUpToDate){
+      dbg.log("endpoint is up to date",pi.deviceName,pi.uuid)
+    }
+    else{
+      dbg.error("endpoint NOT up to date",pi.deviceName,pi.uuid)
+    }
+    return isUpToDate;
   }
   
-  function checkAllEndpoints(){
+  async function checkAllEndpoints(){
     
     if(!fs.existsSync(appPaths.getConf().knownDevicesFile)){
       dbg.warn('no file ')
@@ -236,11 +244,12 @@ export function startMainServer(serverReadyCb){
     dbg.log('>>>> checking all up to date')
     for (const c of pis.getAvailablePis()){
       try{
-        checkEndpointUpToDate(c)
+        await checkEndpointUpToDate(c)
       }catch(e){
         dbg.error("trying to update ep",e)
       }
     }
+    dbg.log('>>>> All checked all up to date')
   }
   const checkAllEndpointsDbnc = _.debounce(checkAllEndpoints, 2000, {})
   var watcher = chokidar.watch(appPaths.getConf().baseDir, {ignored: /^\./, persistent: true});
