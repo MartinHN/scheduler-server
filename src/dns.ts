@@ -87,7 +87,7 @@ export function advertiseServerDNS(){
 export function  listenDNS():Model{
   // browse for all http services
   
-  const pingInterval = 4000;
+  const pingInterval = 10000;
   
   
   //   setInterval(()=>{
