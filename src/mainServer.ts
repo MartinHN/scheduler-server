@@ -241,7 +241,7 @@ export function startMainServer(serverReadyCb){
   
 
   async function checkAgendaDisabledOnPi(p:PiConInfo){
-    sendToPi(p,"/isAgendaDisabled",[isAgendaDisabled]);
+    sendToPi(p,"/isAgendaDisabled",[isAgendaDisabled?1:0]);
   }
 
   async function checkAgendaDisabledOnPis(){
