@@ -3,7 +3,6 @@ import { execSync, execFileSync } from "child_process"
 import { getConfigFileParsingDiagnostics } from 'typescript';
 import * as dbg from './dbg'
 import conf from './config'
-import * as uConf from './userConf'
 import * as appPaths from './filePaths' 
 
 import os from 'os'
@@ -98,9 +97,7 @@ export function setFromDatestring(ds:string){
     if(!isPi){
         return;
     }
-    uConf.setRW(true);
         const res = execSync(cmd).toString()
-        uConf.setRW(false);
         dbg.warn(res)
         
 }

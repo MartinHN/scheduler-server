@@ -221,7 +221,9 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     if(msg.args.length>0)
       {
         const timeStr = msg.args[0]
+        uConf.setRW(true)
         sys.setFromDatestring(timeStr);
+        uConf.setRW(false)
       }
   }
   else if((msg.address === "/dateShouldActivate" )){
