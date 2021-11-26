@@ -84,10 +84,47 @@ export function advertiseServerDNS(){
   
 }
 
+
+let dnsActive = false;
+const pingInterval = 4000;
+let interval:any;
+export function setDNSActive(b){
+  dnsActive = b;
+  
+if(b){
+  listenDNS()
+}
+else{
+  if(interval){clearInterval(interval)};
+}
+}
+
+
+function broadcastMDNS(query){
+  if(!dnsActive){return;}
+  const curD = new Date();
+  for(const [k,v] of Object.entries(model.availableRPI)){
+    if((curD.getTime() - v.lastT.getTime()) >= pingInterval+10000 ){
+      dbg.warn('disconnected',k,(curD.getTime() - v.lastT.getTime()) )
+      const old = model.availableRPI[k];
+       delete model.availableRPI[k] 
+      model.emit("close",old)
+    }
+  }
+
+  dbg.log("updateMDNS",model.availableRPI)
+  // force callback
+  for(const s of Object.values(model.availableRPI)){
+    (query as any)._removeService(s.service.fqdn);
+  }
+  query.update();
+  
+}
+
 export function  listenDNS():Model{
   // browse for all http services
   
-  const pingInterval = 10000;
+  
   
   
   //   setInterval(()=>{
@@ -133,26 +170,11 @@ export function  listenDNS():Model{
   })
   
   
-  
-  setInterval(()=>{
-    const curD = new Date();
-    for(const [k,v] of Object.entries(model.availableRPI)){
-      if((curD.getTime() - v.lastT.getTime()) >= pingInterval+10000 ){
-        dbg.warn('disconnected',k,(curD.getTime() - v.lastT.getTime()) )
-        const old = model.availableRPI[k];
-         delete model.availableRPI[k] 
-        model.emit("close",old)
-      }
-    }
-
-    dbg.log("updateMDNS")
-    // force callback
-    for(const s of Object.values(model.availableRPI)){
-      (query as any)._removeService(s.service.fqdn);
-    }
-    query.update();
-    
+  if(interval){clearInterval(interval)};
+ interval =  setInterval(()=>{
+    broadcastMDNS(query);
   },pingInterval)
-  
+  broadcastMDNS(query);
+ 
   return model
 }

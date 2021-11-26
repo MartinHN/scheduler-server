@@ -1,5 +1,5 @@
 import { startServer } from './server'
-import { listenDNS,advertiseServerDNS ,PiConInfo} from './dns'
+import { listenDNS,advertiseServerDNS ,PiConInfo,setDNSActive} from './dns'
 import {startWS} from './wsServer'
 import * as appPaths from './filePaths'
 import fs from 'fs'
@@ -109,9 +109,11 @@ export function startMainServer(serverReadyCb){
         else
         dbg.error('[wsServer] unknown msg',msg);
       }
-      else
-      if(args.type==="isInaugurationMode"){
+      else if(args.type==="isInaugurationMode"){
         setInaugurationMode(!!args.value)
+      }
+      else if(args.type==="isDNSActive"){
+        setDNSActive(!!args.value)
       }
       
     }
@@ -127,7 +129,9 @@ export function startMainServer(serverReadyCb){
     const pi = pis.getPiForIP(info.address)
     if(pi){
       if(msg){
-        if( msg.address!="/rssi"){dbg.log(">>>>>>> from pi",msg )}
+        if( msg.address!="/rssi"){
+          dbg.log(">>>>>>> from pi",msg )
+        }
         const toWeb = {uuid:pi.uuid,type:"resp",msg};
         wsServer.broadcast(toWeb)
       }
