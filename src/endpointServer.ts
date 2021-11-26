@@ -302,7 +302,7 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 ///////////////////////
 // Entry point
 
-
+const delayBeforeFirstStartSchedule = 5000;
 
 export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:number}){
   const hasCustomPort= !!epConf.endpointPort;
@@ -323,11 +323,14 @@ export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:n
   // advertise an localEndpoint server
   bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
 
+  
   startSchedule((state)=>{
     dbg.log(">>>>> scheduling State is",state?"on":"off")
     activate(!!state)
     
   })
+
+  
   
   return server
 }

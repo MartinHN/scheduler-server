@@ -11,6 +11,12 @@ import ConfFileWatcher from './ConfFileWatcher'
 let curAgenda:Agenda = ScheduleTypes.createDefaultAgenda()
 let isRunning = false;
 let runCB = undefined
+let checkAgendaInt:any;
+
+let wasActive:any
+
+const delBeforeFirstAct = 5000;
+let initScheduleTime = new Date();
 
 const confWatcher = new ConfFileWatcher(endp.conf.agendaFile,(o)=>{
     applyNewSchedule(o)
@@ -19,8 +25,12 @@ const confWatcher = new ConfFileWatcher(endp.conf.agendaFile,(o)=>{
 export async function startSchedule(cB){
     isRunning=undefined
     runCB = cB;
-
-
+    initScheduleTime = new Date();
+    wasActive = undefined
+    if(!checkAgendaInt)
+        checkAgendaInt = setInterval(()=>{checkIfShouldBeActive(true)},1000)
+    
+    
 }
 
 export function getAgenda(){
@@ -32,6 +42,7 @@ export function willBeRunningForDate(d:Date){
 }
 
 function setRunning(b:boolean,force?:boolean){
+    if(wasActive!==b)
     dbg.log((b?"start":"stop") + " all services " + (force?"(forcing)":""))
     isRunning = b;
     if(runCB){
@@ -40,18 +51,29 @@ function setRunning(b:boolean,force?:boolean){
 }
 
 
-function checkIfShouldBeActive(){
+function checkIfShouldBeActive(quiet?:boolean){
     const curDate = new Date();
+    if(curDate.getTime() - initScheduleTime.getTime() < delBeforeFirstAct){
+        dbg.log('skipping firsts')
+        return;
+    }
     if(!curAgenda){dbg.error('no agenda loaded');return -1}
-    dbg.log('applying schedule',curDate,JSON.stringify(curAgenda))
+    if(!quiet){
+        dbg.log('checking schedule',curDate,JSON.stringify(curAgenda))
+    }
+    
     const shouldBeActive = ScheduleTypes.isAgendaActiveForDate(curDate,curAgenda)
     if(shouldBeActive==undefined){dbg.error("what do we do?? nothing"); return;}
-    setRunning(shouldBeActive)
+    if(shouldBeActive!==wasActive){
+        setRunning(shouldBeActive)
+        wasActive = shouldBeActive
+    }
     
 }
 
 
 function applyNewSchedule(o:Agenda){
     curAgenda = o;
+    wasActive = undefined;
     checkIfShouldBeActive();
 }

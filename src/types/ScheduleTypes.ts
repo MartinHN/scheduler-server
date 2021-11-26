@@ -127,7 +127,7 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
       end = 24 * 60 // end is  midnight assume is next day
     }
     if (end > st) {
-      dbg.log('>>>>>>', d.getHours(), curMinutes, st, end)
+      // dbg.log('>>>>>>', d.getHours(), curMinutes, st, end)
       return curMinutes >= st && curMinutes < end
     } else {
       // error
