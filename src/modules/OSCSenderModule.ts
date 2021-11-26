@@ -15,12 +15,16 @@ export default class OSCSenderModule{
     udpPort:any;
     confData:OSCCap
     _timeouts = {} as {[id:string]:any}
+    _looper:any;
     constructor(public confFile:string){
         this.confWatcher = new ConfFileWatcher(confFile,obj=>{this.parseConf(obj)},{});
     }
     
     
     parseConf(o:OSCCap){
+        if(o.loopTime!== undefined){
+            o.loopTime = parseInt('' +o.loopTime);
+        }
         this.confData = o
         try{
             this.udpPort=new osc.UDPPort({
@@ -101,7 +105,17 @@ export default class OSCSenderModule{
         this._timeouts = {}
     }
 
+
     activate(b:boolean){
+        if(this._looper){
+            clearInterval(this._looper);
+        }
+        
+        if(b && (this.confData.loopTime>0)){
+           this._looper =  setInterval(()=>{
+                this.sendMessages(this.confData.onMessages || [])}
+                ,this.confData.loopTime*1000)
+        }
         this.clearPendingMsgs();
         this.sendMessages((b?this.confData.onMessages :this.confData.offMessages) || [])
     }

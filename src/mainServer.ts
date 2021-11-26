@@ -82,8 +82,18 @@ export function startMainServer(serverReadyCb){
       dbg.log('[wsServer] Received Message: ' + JSON.stringify(msg));
     }
     if(addr == "deviceEvent"){
-      const pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
-      if(!pi){dbg.warn('pi not found',args,JSON.stringify(pis.getAvailablePis()));return;}
+      let pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
+      if(!pi){
+      const knownDevices = (appPaths.getFileObj(appPaths.getConf().knownDevicesFile) || {} ) as DeviceDic
+      const knownPi = knownDevices[args.uuid];
+      if(knownPi===undefined){
+        dbg.error("what pi are we talking about?");
+        return;
+      }
+      pi = knownPi;
+      dbg.warn('pi not found',args,"using registred",pi);
+      
+      ;}
       const ev = args.event;
       const pArg = ev.value!==undefined?[ev.value]:undefined;
       sendToPi(pi,"/"+ev.type,pArg)
