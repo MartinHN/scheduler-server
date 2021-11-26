@@ -71,6 +71,9 @@ function checkIfShouldBeActive(quiet?:boolean){
     
 }
 
+export function getAgendaShouldActivate(){
+    return wasActive;
+}
 
 function applyNewSchedule(o:Agenda){
     curAgenda = o;

@@ -30,7 +30,7 @@ class AudioPlayer{
             this.sendOSC("/loop")
         }
         else
-        this.sendOSC("/stop")
+        {this.sendOSC("/stop")}
     }
 
 }

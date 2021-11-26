@@ -15,7 +15,7 @@ import path from 'path'
 import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
-import {willBeRunningForDate,getAgenda, startSchedule} from './schedule'
+import {willBeRunningForDate,getAgenda, startSchedule, getAgendaShouldActivate} from './schedule'
 
 
 const app = express();
@@ -226,6 +226,16 @@ function handleMsg(msg,time,info: {address:string,port:number}){
         uConf.setRW(false)
       }
   }
+  else if(msg.address === "/disableAgenda"){
+    if(msg.args.length === 1){
+      const a  = msg.args[0]
+
+      isAgendaDisabled = a!=="0" && !!a 
+      if(!isAgendaDisabled){
+        activate(!!getAgendaShouldActivate())
+      }
+    }
+    }
   else if((msg.address === "/dateShouldActivate" )){
     let dateToCheck = new Date()
     if(msg.args.length===3)
@@ -303,7 +313,7 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 // Entry point
 
 const delayBeforeFirstStartSchedule = 5000;
-
+let isAgendaDisabled =false;
 export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:number}){
   const hasCustomPort= !!epConf.endpointPort;
   const epPort = hasCustomPort?epConf.endpointPort : conf.endpointPort;
@@ -325,6 +335,9 @@ export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:n
 
   
   startSchedule((state)=>{
+    if(isAgendaDisabled){
+      return;
+    }
     dbg.log(">>>>> scheduling State is",state?"on":"off")
     activate(!!state)
     
