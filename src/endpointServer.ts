@@ -226,11 +226,12 @@ function handleMsg(msg,time,info: {address:string,port:number}){
         uConf.setRW(false)
       }
   }
-  else if(msg.address === "/disableAgenda"){
+  else if(msg.address === "/isAgendaDisabled"){
     if(msg.args.length === 1){
       const a  = msg.args[0]
 
       isAgendaDisabled = a!=="0" && !!a 
+      console.log("isAgendaDisabled = ",isAgendaDisabled)
       if(!isAgendaDisabled){
         activate(!!getAgendaShouldActivate())
       }

@@ -71,6 +71,8 @@ function checkIfShouldBeActive(quiet?:boolean){
     
 }
 
+
+
 export function getAgendaShouldActivate(){
     return wasActive;
 }

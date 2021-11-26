@@ -15,6 +15,7 @@ import _ from 'lodash'
 
 let isInaugurationMode = false;
 
+let isAgendaDisabled = false;
 
 
 export function startMainServer(serverReadyCb){
@@ -55,6 +56,8 @@ export function startMainServer(serverReadyCb){
       updateKnownPi(pi)
     }
     sendToPi(pi,"/activate",[])
+    
+    
     wsServer.broadcast({type:"connectedDeviceList",data:pis.getAvailablePis()})
     await checkEndpointUpToDate(pi);
     
@@ -106,11 +109,19 @@ export function startMainServer(serverReadyCb){
         else if(args.value==="isInaugurationMode"){
           wsServer.sendTo(ws,{type:"isInaugurationMode",data:isInaugurationMode})
         }
+        else if(args.value==="isAgendaDisabled"){
+          wsServer.sendTo(ws,{type:"isAgendaDisabled",data:isAgendaDisabled})
+        }
         else
         dbg.error('[wsServer] unknown msg',msg);
       }
       else if(args.type==="isInaugurationMode"){
         setInaugurationMode(!!args.value)
+      }
+      else if(args.type==="isAgendaDisabled"){
+        isAgendaDisabled = !!args.value
+        checkAgendaDisabledOnPis();
+        
       }
       else if(args.type==="isDNSActive"){
         setDNSActive(!!args.value)
@@ -228,11 +239,26 @@ export function startMainServer(serverReadyCb){
   
   // }
   
+
+  async function checkAgendaDisabledOnPi(p:PiConInfo){
+    sendToPi(p,"/isAgendaDisabled",[isAgendaDisabled]);
+  }
+
+  async function checkAgendaDisabledOnPis(){
+    for (const c of pis.getAvailablePis()){
+      try{
+        checkAgendaDisabledOnPi(c)
+      }catch(e){
+        dbg.error("trying to update agenda disabled",e)
+      }
+    }
+  }
+
   async function checkEndpointUpToDate(pi:PiConInfo){
     
     const agOk=  !! (await checkEndpointAgendaIsUpToDate(pi));
     const infoOk=  true;//!! (await checkEndpointInfoIsUpToDate(p));
-    
+    checkAgendaDisabledOnPi(pi);
     
     const isUpToDate = agOk && infoOk
     if(isUpToDate){
@@ -275,6 +301,10 @@ export function startMainServer(serverReadyCb){
   
   function setInaugurationMode(b:boolean){
     isInaugurationMode = b
+    if(!isAgendaDisabled)
+      {isAgendaDisabled = true;
+      checkAgendaDisabledOnPis();
+    dbg.error("force disabling agenda ")}
     dbg.warn('inauguration set to ' + isInaugurationMode?'on':'off');
     for (const p of pis.getAvailablePis()){
       try{
