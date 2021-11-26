@@ -3,7 +3,7 @@ import { execSync, execFileSync } from "child_process"
 import { getConfigFileParsingDiagnostics } from 'typescript';
 import * as dbg from './dbg'
 import conf from './config'
-import * as uConf from 'userConf'
+import * as uConf from './userConf'
 import * as appPaths from './filePaths' 
 
 import os from 'os'
