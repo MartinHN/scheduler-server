@@ -82,3 +82,22 @@ export async function  removeAllAgendas(){
     }
     
 }
+
+
+export function setFromDatestring(ds:string){
+    const spl = ds.split('/')
+    const day = spl[0]
+    const month = spl[1]
+    spl[1] = day
+    spl[0] = month
+    const nDs = spl.join('/');
+
+    const cmd = `sudo date --set "${nDs}" && sudo hwclock -w`
+    dbg.warn("will set time to",ds, cmd);
+    if(!isPi){
+        return;
+    }
+        const res = execSync(cmd).toString()
+        dbg.warn(res)
+        
+}

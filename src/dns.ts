@@ -112,7 +112,7 @@ function broadcastMDNS(query){
     }
   }
 
-  dbg.log("updateMDNS",model.availableRPI)
+  dbg.log("updateMDNS",Object.values(model.availableRPI).map(pi=>pi.uuid))
   // force callback
   for(const s of Object.values(model.availableRPI)){
     (query as any)._removeService(s.service.fqdn);

@@ -216,9 +216,14 @@ function handleMsg(msg,time,info: {address:string,port:number}){
       activate(msg.args[0]?true:false)
     else
         epOSC.send("/activate",[isActive?1:0],info.address,info.port)
-
   }
-
+  else if((msg.address === "/setTimeStr" )){
+    if(msg.args.length>0)
+      {
+        const timeStr = msg.args[0]
+        sys.setFromDatestring(timeStr);
+      }
+  }
   else if((msg.address === "/dateShouldActivate" )){
     let dateToCheck = new Date()
     if(msg.args.length===3)
