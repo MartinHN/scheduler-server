@@ -233,10 +233,13 @@ function handleMsg(msg,time,info: {address:string,port:number}){
       isAgendaDisabled = a!=="0" && !!a 
       console.log("isAgendaDisabled = ",isAgendaDisabled)
       if(!isAgendaDisabled){
-        activate(!!getAgendaShouldActivate())
+        const shouldAct = !!getAgendaShouldActivate();
+        if(shouldAct!==isActive){
+          activate(shouldAct)
+        }
       }
     }
-    }
+  }
   else if((msg.address === "/dateShouldActivate" )){
     let dateToCheck = new Date()
     if(msg.args.length===3)
