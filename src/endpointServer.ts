@@ -18,6 +18,13 @@ import * as sys from './sysUtils'
 import {willBeRunningForDate,getAgenda, startSchedule, getAgendaShouldActivate} from './schedule'
 
 
+import {isPi} from './sysUtils'
+import * as os from 'os'
+
+// this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
+const targetIf = isPi?"wlan0":"wlp0s20f3" //wlp0s20f3
+
+
 const app = express();
 
 const endpointDir = path.dirname(endp.epBasePath)
@@ -332,11 +339,50 @@ export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:n
     // sendFirstQueries();
     dbg.log("[endpoint OSC] listening on",epOSC.localPort)
   })
-  const bonjour = bonjourM()
-  // advertise an localEndpoint server
-  bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
+  
+  
+  
+  
+  
+  const getIPOfMulticastInterface = () => {
+    if(targetIf as string==="")return undefined
+    const interfaces = os.networkInterfaces();
+     
+    for (const ifName of Object.keys(interfaces)) {
+      if(ifName!==targetIf){continue}
+      const addresses = interfaces[ifName];
+      for (const addressInfo of addresses) {
+        if (addressInfo.family === 'IPv4' && !addressInfo.internal ) {
+          return addressInfo.address ;
+        }
+      }
+    }
+    
+    return "";
+  };
+  
 
   
+  function  tryPublish(){
+    try{
+      const  ifaceIp = getIPOfMulticastInterface();
+      if(ifaceIp===""){
+        throw  Error("no ip for iface "+ targetIf)
+      }
+      dbg.warn("using iface >>>> "+ifaceIp)
+      const bonjour = bonjourM({interface:ifaceIp})
+      // advertise an localEndpoint server
+      bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
+  
+    }
+    catch (e){
+      dbg.error("MDNS publish error",e);
+      setTimeout(tryPublish,1000);
+    }
+  }
+  tryPublish();
+
+
   startSchedule((state)=>{
     if(isAgendaDisabled){
       return;
@@ -345,7 +391,6 @@ export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:n
     activate(!!state)
     
   })
-
   
   
   return server
