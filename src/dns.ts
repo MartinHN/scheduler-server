@@ -20,7 +20,7 @@ export interface PiConInfo{
 interface ServiceEP{service:RemoteService,lastT:Date,uuid:string}
 
 function piFromService(uuid:string,service:RemoteService):PiConInfo{
-  return JSON.parse(JSON.stringify({uuid,deviceName:service.host,ip:service.addresses[0],port:service.port,caps:capsFromSrvTxt(service.txt["caps"] || "")}))
+  return JSON.parse(JSON.stringify({uuid,deviceName:service.host,ip:service.referer.address,port:service.port,caps:capsFromSrvTxt(service.txt["caps"] || "")}))
 }
 
 function capsFromSrvTxt(t:string) : {[id:string]:CapTypeInstance}{
