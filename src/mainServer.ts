@@ -82,7 +82,7 @@ export function startMainServer(serverReadyCb){
     }
     const {addr,args} = msg;
     if(!(addr==="deviceEvent" && args.event && args.event.type === "rssi")){
-      dbg.log('[wsServer] Received Message: ' + JSON.stringify(msg));
+      dbg.log('[wsServer] Received Message: '+addr + JSON.stringify(msg));
     }
     if(addr == "deviceEvent"){
       let pi = Object.values(pis.getAvailablePis()).find(p=>p.uuid==args.uuid)
@@ -95,10 +95,13 @@ export function startMainServer(serverReadyCb){
       }
       pi = knownPi;
       dbg.warn('pi not found',args,"using registred",pi);
+      dbg.log("connected : ",Object.values(pis.getAvailablePis()).map(e=>e.uuid))
       
-      ;}
+      }
+
       const ev = args.event;
       const pArg = ev.value!==undefined?[ev.value]:undefined;
+      // dbg.log('sending to pi',ev.type,pi)
       sendToPi(pi,"/"+ev.type,pArg)
     }
     
@@ -146,6 +149,9 @@ export function startMainServer(serverReadyCb){
         const toWeb = {uuid:pi.uuid,type:"resp",msg};
         wsServer.broadcast(toWeb)
       }
+    }
+    else{
+      dbg.error("msg from unknown pi", info.address)
     }
   }
   

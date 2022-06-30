@@ -165,7 +165,7 @@ export class OSCServerModule {
         this.udpPort.send({address, args},remoteAddr,remotePort)
       }
       else{
-        dbg.warn("[oscServer] not connected")
+        dbg.error("[oscServer] not connected ignoring sending on address ",address)//,this.udpPort)
         this.defferReconnect(this.udpPort)
       }
     }
