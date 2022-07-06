@@ -90,7 +90,7 @@ export function advertiseServerDNS(){
 
 
 let dnsActive = false;
-const hasPingEnabled = true;
+const hasPingEnabled = false;
 const MDNSInterval = hasPingEnabled? 10000 : 5000;
 const pingInterval = 3000;
 let interval:any;
