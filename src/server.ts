@@ -12,6 +12,7 @@ import https from 'https'
 import http from 'http'
 import * as  sys  from './sysUtils';
 import * as dbg from './dbg'
+import expressStaticGzip from 'express-static-gzip'
 const app = express();
 
 app.use(cors())
@@ -211,6 +212,8 @@ import history from 'connect-history-api-fallback'
 import { DeviceDic, Groups } from './types';
 app.use(history({}))
 
-app.use(express.static(viewerHTMLBasePath, {
-  etag: false
-}))
+
+app.use( expressStaticGzip(viewerHTMLBasePath, {serveStatic:{etag:false}  }));
+// app.use(express.static(viewerHTMLBasePath, {
+//   etag: false
+// }))
