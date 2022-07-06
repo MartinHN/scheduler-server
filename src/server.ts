@@ -13,6 +13,8 @@ import http from 'http'
 import * as  sys  from './sysUtils';
 import * as dbg from './dbg'
 import expressStaticGzip from 'express-static-gzip'
+import * as uConf from './userConf'
+
 const app = express();
 
 app.use(cors())
@@ -78,10 +80,12 @@ app.get('/knownDevices',(req,res)=>{
 
 
 app.post('/knownDevices',async (req,res)=>{
+  uConf.setRW(true);
   await fs.writeFile(appPaths.getConf().knownDevicesFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     dbg.log('The file has been saved!',req.body);
   })
+  uConf.setRW(false);
   res.send()
 })
 
@@ -104,10 +108,12 @@ app.get('/groups',(req,res)=>{
 
 
 app.post('/groups',async (req,res)=>{
+  uConf.setRW(true);
   await fs.writeFile(appPaths.getConf().groupFile, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     dbg.log('The file has been saved!',req.body);
   })
+  uConf.setRW(false);
   res.send()
 })
 
@@ -133,9 +139,11 @@ app.get('/agendas',(req,res)=>{
 app.delete('/agendas',(req,res)=>{
   dbg.log("delete agenda")
   const fn =getFileNameFromQ(req)
+  uConf.setRW(true);
   if(fs.existsSync(fn)){
     fs.unlinkSync(fn);
   }
+  uConf.setRW(false);
   res.send();
 })
 
@@ -143,11 +151,12 @@ app.post('/agendas',async (req,res)=>{
   dbg.log("post agenda")
  const fn =getFileNameFromQ(req)
   dbg.log("creating agenda",fn)
-  
+  uConf.setRW(true)
   await fs.writeFile(fn, JSON.stringify(req.body,null,2), (err) => {
     if (err) throw err;
     dbg.log('The file has been saved!',req.body);
   })
+  uConf.setRW(false)
   res.send()
 })
 
@@ -172,7 +181,6 @@ app.get('/agendaNames',(req,res)=>{
 
 app.post("/resetAgendas", async(req,res)=>{
   await sys.removeAllAgendas();
-  
   res.send();
   
 })

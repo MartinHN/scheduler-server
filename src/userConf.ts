@@ -1,7 +1,7 @@
 import path from 'path'
 import { execSync, execFileSync } from "child_process"
 import {readFileSync, writeFileSync} from 'fs'
-import {isPi} from './sysUtils'
+import {isPi} from './platformUtil'
 import * as dbg from './dbg'
 export const thisPath = isPi?"/home/pi/raspestrio/server":"/home/tinmar/Dev/raspestrio/server" 
 const confBasePath=thisPath+"/public/data"

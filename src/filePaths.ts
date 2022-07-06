@@ -2,6 +2,7 @@
 /// config
 import fs from 'fs'
 import * as dbg from './dbg'
+import * as uConf from './userConf'
 let hasValidFolders = false;
 let baseAppPath = '';
 let viewerHTMLBasePath = "../view-dist";
@@ -28,6 +29,7 @@ export function setViewerHTMLBasePath(n:string){
     viewerHTMLBasePath = n;
     conf = getConf(true);
 }
+
 export function setRWBasePath(n:string){
     if(!n.endsWith('/'))
         n=n+'/'
@@ -47,16 +49,21 @@ export function getFileObj(p:string){
 }
 
 export function writeFileObj(p:string,data:any){
+    dbg.log("writing to file",p);
+    uConf.setRW(true);
     try {
         fs.writeFileSync(p,JSON.stringify(data,null,2),{ encoding: 'utf-8' })
     } catch (error) {
         dbg.error("can't parse file",p,error)
+    } finally{
+        uConf.setRW(false);
     }
     return undefined
 }
 
 
 function initFolders(){
+    uConf.setRW(true);
      try{
         if(!fs.existsSync(conf.agendasFolder))
             fs.mkdirSync(conf.agendasFolder, { recursive: true })
@@ -69,6 +76,8 @@ function initFolders(){
      }
      catch (e){
          dbg.error("can't init files for base path" , baseAppPath,e)
+     } finally {
+        uConf.setRW(false);
      }
   
 }
