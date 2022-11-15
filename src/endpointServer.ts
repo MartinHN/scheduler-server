@@ -229,7 +229,7 @@ if (isPi) {
     btn.on('alert', (level, tick) => {
       dbg.log("new button state :", level)
       if (level === 0) {
-        activate(true);
+        audioPlayer.playOnce();
       }
     });
     gpioB.push(btn);

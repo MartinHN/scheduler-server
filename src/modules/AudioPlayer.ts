@@ -32,5 +32,10 @@ class AudioPlayer {
         else { this.sendOSC("/stop") }
     }
 
+    playOnce() {
+        this.sendOSC("/play")
+
+    }
+
 }
 export default new AudioPlayer() 
