@@ -1,5 +1,5 @@
 import GpioM from 'pigpio'
-import {isPi} from '../platformUtil'
+import { isPi } from '../platformUtil'
 import * as dbg from '../dbg'
 
 class RelayWr {

@@ -10,6 +10,6 @@
 export const epBasePath = 'public/endpoint/'
 
 export const conf = {
-    agendaFile : epBasePath  + 'agenda.json',
-    infoFile : epBasePath+'info.json',
+    agendaFile: epBasePath + 'agenda.json',
+    infoFile: epBasePath + 'info.json',
 }

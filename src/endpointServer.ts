@@ -3,39 +3,39 @@
 ////////////////////////
 // SERVE
 import { hostname } from 'os';
-import bonjourM, { RemoteService, Service }  from 'bonjour'
+import bonjourM, { RemoteService, Service } from 'bonjour'
 import * as dbg from './dbg'
 import fs from 'fs';
 import express from 'express'
 import cors from 'cors'
 import conf from './config'
-import  * as endp from './endpointConfig'
+import * as endp from './endpointConfig'
 import * as uConf from "./userConf"
 import path from 'path'
 import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
-import {willBeRunningForDate,getAgenda, startSchedule, getAgendaShouldActivate} from './schedule'
+import { willBeRunningForDate, getAgenda, startSchedule, getAgendaShouldActivate } from './schedule'
 import multicastdns from 'multicast-dns';
 
-import {isPi} from './platformUtil'
+import { isPi, isOSX } from './platformUtil'
 import * as os from 'os'
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
-const targetIf = isPi?"wlan0":"wlp0s20f3" //wlp0s20f3
+const targetIf = isPi ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
 
 
 const app = express();
 
 const endpointDir = path.dirname(endp.epBasePath)
 uConf.setRW(true)
-if(!fs.existsSync(endpointDir))
-fs.mkdirSync(endpointDir)
+if (!fs.existsSync(endpointDir))
+  fs.mkdirSync(endpointDir)
 
-if(!fs.existsSync(endp.conf.agendaFile))
-fs.writeFileSync(endp.conf.agendaFile,'{}',{ encoding: 'utf-8' })
-if(!fs.existsSync(endp.conf.infoFile))
-fs.writeFileSync(endp.conf.infoFile,'{}',{ encoding: 'utf-8' })
+if (!fs.existsSync(endp.conf.agendaFile))
+  fs.writeFileSync(endp.conf.agendaFile, '{}', { encoding: 'utf-8' })
+if (!fs.existsSync(endp.conf.infoFile))
+  fs.writeFileSync(endp.conf.infoFile, '{}', { encoding: 'utf-8' })
 
 
 uConf.setRW(false)
@@ -57,35 +57,35 @@ active sound
 
 */
 
-function restGetSet(confName:string,getF:()=>any,setF:(any)=>void,typeV:string="string"){
-  app.get("/"+confName,(req,res)=>{
+function restGetSet(confName: string, getF: () => any, setF: (any) => void, typeV: string = "string") {
+  app.get("/" + confName, (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.json({value:getF()});
+    res.json({ value: getF() });
   })
-  app.post("/"+confName,async (req,res)=>{
+  app.post("/" + confName, async (req, res) => {
     const v = req.body.value
-    if((v!==undefined) || typeof(v)!==typeV){
+    if ((v !== undefined) || typeof (v) !== typeV) {
       setF(v);
     }
-    else{
-      dbg.error("undefined conf var",confName,typeof(v));
+    else {
+      dbg.error("undefined conf var", confName, typeof (v));
     }
     res.send()
   })
 }
 
-function restGetSetConf(confName:string){
-  restGetSet(confName,()=>uConf.getVariable(confName),(v)=>uConf.setVariable(confName,v));
+function restGetSetConf(confName: string) {
+  restGetSet(confName, () => uConf.getVariable(confName), (v) => uConf.setVariable(confName, v));
 }
 
 app.use(cors())
 app.use(express.json())
 
-app.use(function(req, res, next){
+app.use(function (req, res, next) {
   if (req.is('text/*')) {
     req.body = '';
     req.setEncoding('utf8');
-    req.on('data', function(chunk){ req.body += chunk });
+    req.on('data', function (chunk) { req.body += chunk });
     req.on('end', next);
   } else {
     next();
@@ -101,7 +101,7 @@ app.use(express.static(endpointDir, {
 }))
 
 
-app.get('/agendaFile',(req,res)=>{
+app.get('/agendaFile', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   var readable = fs.createReadStream(endp.conf.agendaFile);
   readable.pipe(res);
@@ -109,11 +109,11 @@ app.get('/agendaFile',(req,res)=>{
 
 
 
-app.post('/post/agendaFile',async (req,res)=>{
+app.post('/post/agendaFile', async (req, res) => {
   uConf.setRW(true)
-  await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body,null,2), (err) => {
+  await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body, null, 2), (err) => {
     if (err) throw err;
-    dbg.log('The agenda file has been saved!',endp.conf.agendaFile,req.body);
+    dbg.log('The agenda file has been saved!', endp.conf.agendaFile, req.body);
   })
   res.send()
   uConf.setRW(false)
@@ -142,10 +142,10 @@ app.post('/post/agendaFile',async (req,res)=>{
 //   uConf.setRW(false)
 // })
 
-app.get('/time',(req,res)=>{
+app.get('/time', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  const to = {localTime:Date().toString(),utcTime:new Date().toUTCString()}
-  dbg.log("getting time",to)
+  const to = { localTime: Date().toString(), utcTime: new Date().toUTCString() }
+  dbg.log("getting time", to)
   res.send(to);
 })
 
@@ -159,44 +159,45 @@ app.get('/time',(req,res)=>{
 
 //actions
 import audioPlayer from './modules/AudioPlayer'
-import relay from'./modules/Relay'
+import relay from './modules/Relay'
 import OSCSenderModule from './modules/OSCSenderModule'
 import vermuthModule from './modules/VermuthModule'
 
 
-function registerConfFile(app,capName:string,capFile:string){
-  app.post('/post/cap/'+capName,async (req,res)=>{
+function registerConfFile(app, capName: string, capFile: string) {
+  app.post('/post/cap/' + capName, async (req, res) => {
     uConf.setRW(true)
-    await fs.writeFile(capFile, JSON.stringify(req.body,null,2), (err) => {
+    await fs.writeFile(capFile, JSON.stringify(req.body, null, 2), (err) => {
       if (err) throw err;
-      dbg.log('The cap conf has been saved!',capName,req.body);
+      dbg.log('The cap conf has been saved!', capName, req.body);
     })
     res.send()
     uConf.setRW(false)
   })
-  app.get('/cap/'+capName,(req,res)=>{
+  app.get('/cap/' + capName, (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     var readable = fs.createReadStream(capFile);
     // const data =fs.readFileSync(capFile).toString()
-    dbg.log("getting cap conf",capName)
+    dbg.log("getting cap conf", capName)
     readable.pipe(res);
   })
-  
+
 }
 
-const oscModule = new OSCSenderModule(endp.epBasePath+"/osc.json");
-registerConfFile(app,"osc1",oscModule.confFile);
+const oscModule = new OSCSenderModule(endp.epBasePath + "/osc.json");
+registerConfFile(app, "osc1", oscModule.confFile);
 
-const oscModule2 = new OSCSenderModule(endp.epBasePath+"/osc2.json");
-registerConfFile(app,"osc2",oscModule2.confFile);
+const oscModule2 = new OSCSenderModule(endp.epBasePath + "/osc2.json");
+registerConfFile(app, "osc2", oscModule2.confFile);
 
 
-function initModules(){
+function initModules() {
   audioPlayer.init();
   vermuthModule.init()
 }
 let isActive = false
-function activate(active:boolean){
+
+function activate(active: boolean) {
   isActive = active
   audioPlayer.activate(active);
   relay.activate(active)
@@ -205,68 +206,68 @@ function activate(active:boolean){
   vermuthModule.activate(active);
 }
 
+/// gpio
 
 
 /// osc
-import {OSCServerModule} from './lib/OSCServerModule'
+import { OSCServerModule } from './lib/OSCServerModule'
 import ConfFileWatcher from './ConfFileWatcher';
 
 
 /// describe basic functionality of endpoints
-function handleMsg(msg,time,info: {address:string,port:number}){
-  if(msg.address !== "/rssi")dbg.log("endpoint rcvd",info.address,info.port,msg.address)
-  if(msg.address === "/rssi"){
-    epOSC.send("/rssi",[sys.getRSSI()],info.address,info.port)
+function handleMsg(msg, time, info: { address: string, port: number }) {
+  if (msg.address !== "/rssi") dbg.log("endpoint rcvd", info.address, info.port, msg.address)
+  if (msg.address === "/rssi") {
+    epOSC.send("/rssi", [sys.getRSSI()], info.address, info.port)
   }
-  else if((msg.address === "/activate" )){
-    if(msg.args.length>0)
-    activate(msg.args[0]?true:false)
+  else if ((msg.address === "/activate")) {
+    if (msg.args.length > 0)
+      activate(msg.args[0] ? true : false)
     else
-    epOSC.send("/activate",[isActive?1:0],info.address,info.port)
+      epOSC.send("/activate", [isActive ? 1 : 0], info.address, info.port)
   }
-  else if((msg.address === "/setTimeStr" )){
-    if(msg.args.length>0)
-    {
+  else if ((msg.address === "/setTimeStr")) {
+    if (msg.args.length > 0) {
       const timeStr = msg.args[0]
       sys.setFromDatestring(timeStr);
     }
   }
-  else if(msg.address === "/isAgendaDisabled"){
-    if(msg.args.length === 1){
-      const a  = msg.args[0]
+  else if (msg.address === "/isAgendaDisabled") {
+    if (msg.args.length === 1) {
+      const a = msg.args[0]
 
-      isAgendaDisabled = a!=="0" && !!a 
-      console.log("isAgendaDisabled = ",isAgendaDisabled)
-      if(!isAgendaDisabled){
+      isAgendaDisabled = a !== "0" && !!a
+      console.log("isAgendaDisabled = ", isAgendaDisabled)
+      if (!isAgendaDisabled) {
         const shouldAct = !!getAgendaShouldActivate();
-        if(shouldAct!==isActive){
+        if (shouldAct !== isActive) {
           activate(shouldAct)
         }
       }
     }
   }
-  else if((msg.address === "/dateShouldActivate" )){
+  else if ((msg.address === "/dateShouldActivate")) {
     let dateToCheck = new Date()
-    if(msg.args.length===3)
-    dateToCheck = new Date(msg.args[0],msg.args[1],msg.args[2],msg.args[3],msg.args[4])
-    
+    if (msg.args.length === 3)
+      dateToCheck = new Date(msg.args[0], msg.args[1], msg.args[2], msg.args[3], msg.args[4])
+
     const willBeRunning = willBeRunningForDate(dateToCheck)
-    epOSC.send("/dateShouldActivate",[willBeRunning?1:0],info.address,info.port)
+    epOSC.send("/dateShouldActivate", [willBeRunning ? 1 : 0], info.address, info.port)
   }
-  else if(msg.address === "/hostName"){
-    if(msg.args.length === 1){
+  else if (msg.address === "/hostName") {
+    if (msg.args.length === 1) {
       const n = msg.args[0]
       sys.setHostName(n);
     }
-    else{
+    else {
       dbg.error("wrong args num for hostname")
     }
   }
-  
-  else if(msg.address === "/reboot"){
+
+  else if (msg.address === "/reboot") {
     sys.reboot();
   }
-  
+
   // let schema;
   // try{
   //   schema = JSON.parse(msg.args[0])
@@ -281,8 +282,8 @@ function handleMsg(msg,time,info: {address:string,port:number}){
   // }
 }
 
-const epOSC= new OSCServerModule((msg,time,info)=>{
-  handleMsg(msg,time,info)
+const epOSC = new OSCServerModule((msg, time, info) => {
+  handleMsg(msg, time, info)
 });
 
 
@@ -319,88 +320,88 @@ const epOSC= new OSCServerModule((msg,time,info)=>{
 // Entry point
 
 const delayBeforeFirstStartSchedule = 5000;
-let isAgendaDisabled =false;
-export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:number}){
-  const hasCustomPort= !!epConf.endpointPort;
-  const epPort = hasCustomPort?epConf.endpointPort : conf.endpointPort;
+let isAgendaDisabled = false;
+export function startEndpointServer(epConf: { endpointName?: string, endpointPort?: number }) {
+  const hasCustomPort = !!epConf.endpointPort;
+  const epPort = hasCustomPort ? epConf.endpointPort : conf.endpointPort;
   initModules();
-  const httpProto = conf.usehttps?https:http
-  const server = conf.usehttps? httpProto.createServer(conf.credentials as any,app):httpProto.createServer(app)
+  const httpProto = conf.usehttps ? https : http
+  const server = conf.usehttps ? httpProto.createServer(conf.credentials as any, app) : httpProto.createServer(app)
   server.listen(epPort, () =>
-  dbg.log(`[endpoint OSC] will listen on port ${epPort}!`));
-  epOSC.connect("0.0.0.0",epPort)
-  
-  
-  epOSC.udpPort.on('ready',()=>{
+    dbg.log(`[endpoint OSC] will listen on port ${epPort}!`));
+  epOSC.connect("0.0.0.0", epPort)
+
+
+  epOSC.udpPort.on('ready', () => {
     // sendFirstQueries();
-    dbg.log("[endpoint OSC] listening on",epOSC.localPort)
+    dbg.log("[endpoint OSC] listening on", epOSC.localPort)
   })
-  
-  
-  
-  
-  
+
+
+
+
+
   const getIPOfMulticastInterface = () => {
-    if(targetIf as string==="")return undefined
+    if (targetIf as string === "") return undefined
     const interfaces = os.networkInterfaces();
-     
+
     for (const ifName of Object.keys(interfaces)) {
-      if(ifName!==targetIf){continue}
+      if (ifName !== targetIf) { continue }
       const addresses = interfaces[ifName];
       for (const addressInfo of addresses) {
-        if (addressInfo.family === 'IPv4' && !addressInfo.internal ) {
-          return addressInfo.address ;
+        if (addressInfo.family === 'IPv4' && !addressInfo.internal) {
+          return addressInfo.address;
         }
       }
     }
-    
+
     return "";
   };
-  
 
-  
-  function  tryPublish(){
-    try{
-      let  ifaceIp = getIPOfMulticastInterface();
-      if(ifaceIp===""){
-        throw  Error("no ip for iface "+ targetIf)
+
+
+  function tryPublish() {
+    try {
+      let ifaceIp = getIPOfMulticastInterface();
+      if (ifaceIp === "") {
+        throw Error("no ip for iface " + targetIf)
       }
-      
-      dbg.warn("using iface >>>> "+ifaceIp)
 
-      const mdnsOpts = {interface:undefined};
+      dbg.warn("using iface >>>> " + ifaceIp)
+
+      const mdnsOpts = { interface: undefined };
       //ts-ignore : next-line???
       const bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
       // advertise an localEndpoint server
 
 
-      bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
-      
-      
+      bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
+
+
       // const mdnsCustomResponder = multicastdns(mdnsOpts)
       // mdnsCustomResponder.setMaxListeners(0)
-      
+
       // mdnsCustomResponder.on('query', (query)=>{
       //     console.log(">>>>>>>>>>>new query",query);
       // })
     }
-    catch (e){
-      dbg.error("MDNS publish error",e);
-      setTimeout(tryPublish,1000);
+    catch (e) {
+      dbg.error("MDNS publish error", e);
+      setTimeout(tryPublish, 1000);
     }
   }
   tryPublish();
 
 
-  startSchedule((state)=>{
-    if(isAgendaDisabled){
+  startSchedule((state) => {
+    if (isAgendaDisabled) {
       return;
     }
-    dbg.log(">>>>> scheduling State is",state?"on":"off")
+    dbg.log(">>>>> scheduling State is", state ? "on" : "off")
     activate(!!state)
-    
+
   })
-  
-  
+
+
   return server
 }
