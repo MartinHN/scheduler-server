@@ -18,11 +18,11 @@ import * as sys from './sysUtils'
 import {willBeRunningForDate,getAgenda, startSchedule, getAgendaShouldActivate} from './schedule'
 import multicastdns from 'multicast-dns';
 
-import {isPi} from './platformUtil'
+import { isPi, isOSX } from './platformUtil'
 import * as os from 'os'
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
-const targetIf = isPi?"wlan0":"wlp0s20f3" //wlp0s20f3
+const targetIf = isPi ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
 
 
 const app = express();
