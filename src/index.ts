@@ -1,7 +1,7 @@
 import * as sys from './sysUtils';
 
 
-function hasArg(n:string){
+function hasArg(n: string) {
   return process.argv.includes(n)
 }
 
@@ -9,31 +9,31 @@ function hasArg(n:string){
 
 const isMainServer = hasArg('--srv');//uConf.getVariable("isMainServer");
 const startClient = hasArg('-c');
-const lastEl = process.argv[process.argv.length-1]
+const lastEl = process.argv[process.argv.length - 1]
 let endpointName = sys.getHostName() || "nodeCli";
-if(!lastEl.startsWith('-')){
+if (!lastEl.startsWith('-')) {
   endpointName = lastEl;
-} 
-
-
-if(isMainServer){
-  import('./mainServer').then(mod=>
-    mod.startMainServer(()=>{
-    }))
- 
 }
 
 
-if(startClient){
+if (isMainServer) {
+  import('./mainServer').then(mod =>
+    mod.startMainServer(() => {
+    }))
+
+}
+
+
+if (startClient) {
   let targetPort = 0;
-  if(endpointName.includes(":")){
+  if (endpointName.includes(":")) {
     const spl = endpointName.split(":")
     targetPort = parseInt(spl[1])
     endpointName = spl[0]
   }
 
-  import('./endpointServer').then(mod=>
+  import('./endpointServer').then(mod =>
 
-    mod. startEndpointServer({endpointName,endpointPort:targetPort}))
- 
+    mod.startEndpointServer({ endpointName, endpointPort: targetPort }))
+
 }

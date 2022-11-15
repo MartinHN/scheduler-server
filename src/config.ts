@@ -1,13 +1,13 @@
 /////////////////////:
 /// config
-import {readFileSync} from 'fs'
+import { readFileSync } from 'fs'
 
 const usehttps = false;
- const conf=  {
+const conf = {
     usehttps,
-    credentials : {key:usehttps?readFileSync('../cert/key.pem'):{},cert:usehttps?readFileSync('../cert/cert.pem'):{}},
-    serverPort:3003,
-    endpointPort:3004
+    credentials: { key: usehttps ? readFileSync('../cert/key.pem') : {}, cert: usehttps ? readFileSync('../cert/cert.pem') : {} },
+    serverPort: 3003,
+    endpointPort: 3004
 }
 
 export default conf
