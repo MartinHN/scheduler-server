@@ -1,5 +1,5 @@
 set -x
-EPATH=/home/tinmar/Dev/raspestrio/androidjs/serverdist
+EPATH=/Users/tinmarbook/Dev/momo/raspestrio/androidjs/serverdist
 
 rm -rf $EPATH
 mkdir $EPATH

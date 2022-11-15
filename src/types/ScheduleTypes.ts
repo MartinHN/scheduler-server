@@ -2,7 +2,7 @@
 // Agendas
 import * as dbg from '../dbg'
 
-export function hourStringToMinutes (h:string) :number| undefined {
+export function hourStringToMinutes(h: string): number | undefined {
   const spl = h.split(':')
   if (spl.length === 2) {
     return parseInt(spl[0]) * 60 + parseInt(spl[1])
@@ -10,25 +10,25 @@ export function hourStringToMinutes (h:string) :number| undefined {
   return undefined
 }
 
-export function hourMinutesToString (h:number) :string {
+export function hourMinutesToString(h: number): string {
   return Math.ceil(h / 60) + ':' + Math.ceil(h % 60)
 }
 
 export interface HourRange {
-    start: string;
-    end: string;
-  }
+  start: string;
+  end: string;
+}
 
-export function defaultHourRange ():HourRange {
+export function defaultHourRange(): HourRange {
   return { start: '09:00', end: '18:00' }
 }
 
-export interface DayType{
-    dayName:string;
-    hourRangeList:HourRange[]
+export interface DayType {
+  dayName: string;
+  hourRangeList: HourRange[]
 }
 
-export function createDefaultDayType ():DayType {
+export function createDefaultDayType(): DayType {
   return { dayName: 'default', hourRangeList: [defaultHourRange()] }
 }
 
@@ -42,48 +42,48 @@ export const dayNames = [
   'dimanche'
 ]
 
-export interface WeekHours{
-  defaultDay:DayType
-  exceptions:DayType[]
+export interface WeekHours {
+  defaultDay: DayType
+  exceptions: DayType[]
 }
 
 export type ExceptionList = DayType[]
 
-export function getExceptionListFromWH (wh:WeekHours):ExceptionList {
+export function getExceptionListFromWH(wh: WeekHours): ExceptionList {
   if (wh.exceptions) {
     return wh.exceptions
   }
   return []
 }
 
-export function getAvailableExceptionDaysFromWH (wh:WeekHours):string[] {
+export function getAvailableExceptionDaysFromWH(wh: WeekHours): string[] {
   return dayNames.filter(d => !Object.values(wh.exceptions || []).find(e => e.dayName === d))
 }
 
-export function createDefaultWeekHour ():WeekHours {
+export function createDefaultWeekHour(): WeekHours {
   return {
     defaultDay: createDefaultDayType(),
     exceptions: []
   }
 }
 
-export interface AgendaException{
-    name:string
-    dates:{start:string, end:string}
-    dayValue:DayType
+export interface AgendaException {
+  name: string
+  dates: { start: string, end: string }
+  dayValue: DayType
 }
 
-export interface Agenda{
-  name:string
-  defaultWeek:WeekHours
-  agendaExceptionList:AgendaException[]
+export interface Agenda {
+  name: string
+  defaultWeek: WeekHours
+  agendaExceptionList: AgendaException[]
 }
 
-export function dateDayToString (d:Date):string {
+export function dateDayToString(d: Date): string {
   return '' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear()
 }
 
-export function dateDayFromString (d:string) :Date {
+export function dateDayFromString(d: string): Date {
   const dspl = d.split('/')
   const spl = dspl.map(e => { return parseInt(e) })
   if (spl.length === 3) {
@@ -93,7 +93,7 @@ export function dateDayFromString (d:string) :Date {
     return new Date()
   }
 }
-export function createAgendaException (name:string):AgendaException {
+export function createAgendaException(name: string): AgendaException {
   return {
     name,
     dates: {
@@ -104,14 +104,14 @@ export function createAgendaException (name:string):AgendaException {
   }
 }
 
-export function createDefaultAgenda () : Agenda {
+export function createDefaultAgenda(): Agenda {
   return { name: 'default', defaultWeek: createDefaultWeekHour(), agendaExceptionList: [] }
 }
 
 // /////////////
 // Helper to validate
 
-export function isActiveForDayType (d:Date, day:DayType):boolean {
+export function isActiveForDayType(d: Date, day: DayType): boolean {
   if (!day.hourRangeList || !day.hourRangeList.length) {
     dbg.log('empty day')
     return false
@@ -138,7 +138,7 @@ export function isActiveForDayType (d:Date, day:DayType):boolean {
   return !!validRange
 }
 
-export function isAgendaActiveForDate (d:Date, ag:Agenda) :boolean {
+export function isAgendaActiveForDate(d: Date, ag: Agenda): boolean {
   const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
   const ex = (ag.agendaExceptionList || []).find(e => {
     const startD = dateDayFromString(e.dates.start)
