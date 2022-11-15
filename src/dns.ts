@@ -8,6 +8,10 @@ import bonjourM, { RemoteService, Service }  from 'bonjour'
 import {EventEmitter} from 'events' 
 import jdiff from 'json-diff';
 import { CapTypeInstance, CapTypeName } from './types/CapTypes';
+import ping from 'ping'
+import { DeviceDic } from './types';
+import * as appPaths from './filePaths'
+
 export interface PiConInfo{
   uuid:string;
   deviceName:string;
@@ -86,8 +90,11 @@ export function advertiseServerDNS(){
 
 
 let dnsActive = false;
-const pingInterval = 4000;
+const hasPingEnabled = false;
+const MDNSInterval = hasPingEnabled? 10000 : 5000;
+const pingInterval = 3000;
 let interval:any;
+let pingIntervalObj : any;
 export function setDNSActive(b){
   dnsActive = b;
   
@@ -100,8 +107,8 @@ else{
 }
 
 
-function broadcastMDNS(query){
-  if(!dnsActive){return;}
+function broadcastMDNS(query,force=false){
+  if(!dnsActive && !force){return;}
   const curD = new Date();
   for(const [k,v] of Object.entries(model.availableRPI)){
     if((curD.getTime() - v.lastT.getTime()) >= pingInterval+10000 ){
@@ -118,20 +125,40 @@ function broadcastMDNS(query){
     (query as any)._removeService(s.service.fqdn);
   }
   query.update();
+
+
   
+}
+function pingAllPis(){
+  const appFilePaths = appPaths.getConf();
+  const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {} ) as DeviceDic
+  if(!dnsActive || !hasPingEnabled){return;}
+  dbg.log("[ping] >>>> start ping")
+  const pingCfg = {
+    timeout: pingInterval,
+  };
+  for(const s of Object.values(knownDevices)){
+    
+    (function(curPi){
+      const host = curPi.ip
+      const hostName = curPi.deviceName
+    ping.sys.probe(host, (isAlive)=>{
+      var msg = `[ping] host ${hostName} (${host})` + (isAlive ?' is alive' : ' is dead');
+      dbg.log(msg);
+      const resolvedPi = model.availableRPI[curPi.uuid]
+      if(isAlive){
+        if(resolvedPi) {resolvedPi.lastT = new Date();}
+      else{
+        dbg.warn("pi not registered but active")
+      }}
+  }, pingCfg);
+  }(s))
+  }
+
 }
 
 export function  listenDNS():Model{
-  // browse for all http services
-  
-  
-  
-  
-  //   setInterval(()=>{
-  //     bonjour.find({ type: 'http'}, function (service){
-  //       dbg.log('service',service)
-  //     })
-  // },3000);
+  console.log(">>>>>>>>>>>>>>>>>start listening Piiii")
   const bonjour = bonjourM()
   const query =    bonjour.find({ type: 'rspstrio' ,protocol:'udp'},  (_service)=> {
     const service = JSON.parse(JSON.stringify(_service))
@@ -153,7 +180,6 @@ export function  listenDNS():Model{
       
       model.availableRPI[uuid].lastT = new Date()
       
-      
       const regPi = piFromService(uuid,model.availableRPI[uuid].service)
       const announcedPi = piFromService(uuid,service)
       if( jdiff.diff(regPi,announcedPi)){
@@ -161,20 +187,25 @@ export function  listenDNS():Model{
         model.emit("close",uuid)
         model.availableRPI[uuid].service = service;
         model.emit("open",uuid)
-
       }
 
       
     }
     
   })
-  
-  
+
   if(interval){clearInterval(interval)};
  interval =  setInterval(()=>{
     broadcastMDNS(query);
-  },pingInterval)
-  broadcastMDNS(query);
+  },MDNSInterval)
+  broadcastMDNS(query,true);
+ 
+
+  if(pingIntervalObj){clearInterval(pingIntervalObj)}
+  pingIntervalObj =  setInterval(()=>{
+    pingAllPis();
+  },pingInterval )
+  pingAllPis();
  
   return model
 }

@@ -16,9 +16,9 @@ import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
 import {willBeRunningForDate,getAgenda, startSchedule, getAgendaShouldActivate} from './schedule'
+import multicastdns from 'multicast-dns';
 
-
-import {isPi} from './sysUtils'
+import {isPi} from './platformUtil'
 import * as os from 'os'
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
@@ -228,9 +228,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
     if(msg.args.length>0)
     {
       const timeStr = msg.args[0]
-      uConf.setRW(true)
       sys.setFromDatestring(timeStr);
-      uConf.setRW(false)
     }
   }
   else if(msg.address === "/isAgendaDisabled"){
@@ -258,9 +256,7 @@ function handleMsg(msg,time,info: {address:string,port:number}){
   else if(msg.address === "/hostName"){
     if(msg.args.length === 1){
       const n = msg.args[0]
-      uConf.setRW(true)
       sys.setHostName(n);
-      uConf.setRW(false)
     }
     else{
       dbg.error("wrong args num for hostname")
@@ -365,15 +361,28 @@ export function startEndpointServer(epConf:{endpointName?:string,endpointPort?:n
   
   function  tryPublish(){
     try{
-      const  ifaceIp = getIPOfMulticastInterface();
+      let  ifaceIp = getIPOfMulticastInterface();
       if(ifaceIp===""){
         throw  Error("no ip for iface "+ targetIf)
       }
+      
       dbg.warn("using iface >>>> "+ifaceIp)
-      const bonjour = bonjourM({interface:ifaceIp})
+
+      const mdnsOpts = {interface:undefined};
+      //ts-ignore : next-line???
+      const bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
       // advertise an localEndpoint server
+
+
       bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio',protocol:'udp', port: epPort,txt:{uuid:"lumestrio@"+sys.getMac()+(hasCustomPort?''+epPort:''),caps:"osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005"} })
-  
+      
+      
+      // const mdnsCustomResponder = multicastdns(mdnsOpts)
+      // mdnsCustomResponder.setMaxListeners(0)
+      
+      // mdnsCustomResponder.on('query', (query)=>{
+      //     console.log(">>>>>>>>>>>new query",query);
+      // })
     }
     catch (e){
       dbg.error("MDNS publish error",e);

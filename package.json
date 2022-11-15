@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "watch": "nodemon --exec node --es-module-specifier-resolution=node --loader ts-node/esm ./src/index.ts",
+    "watch": "nodemon  -e ts --exec \"npm run build && npm run run -- \"",
     "watch:cli": "npm run watch -- -c",
     "watch:srv": "npm run watch -- --srv ",
     "start": "node --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
@@ -25,10 +25,12 @@
     "connect-history-api-fallback": "^1.6.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
+    "express-static-gzip": "^2.1.7",
     "json-diff": "^0.5.4",
     "lodash": "^4.17.21",
     "osc": "^2.4.2",
     "pigpio": "^3.3.1",
+    "ping": "^0.4.2",
     "websocket": "^1.0.34",
     "ws": "^7.5.2"
   },
@@ -45,7 +47,8 @@
   "nodemonConfig": {
     "ignore": [
       "tests/*",
-      "public/*"
+      "public/*",
+      "out/*"
     ],
     "delay": 2500
   }

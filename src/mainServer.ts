@@ -94,7 +94,7 @@ export function startMainServer(serverReadyCb){
         return;
       }
       pi = knownPi;
-      dbg.warn('pi not found',args,"using registred",pi);
+      dbg.warn('pi not found',args?.uuid,"using registred on ilast known ip",pi.ip);
       dbg.log("connected : ",Object.values(pis.getAvailablePis()).map(e=>e.uuid))
       
       }
@@ -127,6 +127,7 @@ export function startMainServer(serverReadyCb){
         
       }
       else if(args.type==="isDNSActive"){
+        dbg.log("activating DNS : ",!!args.value)
         setDNSActive(!!args.value)
       }
       
@@ -161,7 +162,7 @@ export function startMainServer(serverReadyCb){
     
     const curDev = knownDevices[p.uuid]
     if(!curDev){
-      dbg.error('no known device for pi',p.uuid || p)
+      dbg.error('[app] checkRemoteResource no known device for pi',p.uuid || p)
       return false;
     }
     
@@ -206,13 +207,13 @@ export function startMainServer(serverReadyCb){
     const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {} )as Groups
     const curDev = knownDevices[p.uuid]
     if(!curDev){
-      dbg.error('no known device for pi',p.uuid || p)
+      dbg.error('[app] checkEndpointAgendaIsUpToDate no known device for pi',p.uuid || p)
       return;
     }
     
     const curGroupObj = groups[curDev.group]
     if(!curGroupObj){
-      dbg.error('no known group for pi ignore checking agenda')
+      dbg.error('[app] checkEndpointAgendaIsUpToDate no known group for pi ignore checking agenda')
       return;
     }
     
@@ -220,7 +221,7 @@ export function startMainServer(serverReadyCb){
     if(!agendaName.endsWith('.json'))agendaName+='.json'
     const agendaPath = appFilePaths.agendasFolder+"/"+agendaName
     if(!fs.existsSync(agendaPath)){
-      dbg.error('no known path for agenda')
+      dbg.error('[app] checkEndpointAgendaIsUpToDate no known path for agenda')
       return false;
     }
     const data = fs.readFileSync(agendaPath).toString()
