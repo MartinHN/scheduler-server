@@ -65,16 +65,11 @@ export class OSCServerModule {
 
     this.udpPort = udpPort;
     udpPort.on('ready', () => {
+      // console.log(">>>>>>ready");
       clearTimeout(udpPort.timeout)
-      const ipAddresses = getIPAddresses();
-      if (!ipAddresses.length) {
-        throw new Error("no interface to bind to...")
-      }
+
       udpPort.isConnected = true;
       dbg.log('Listening for OSC over UDP.');
-      ipAddresses.forEach((address) => {
-        dbg.log(' Host:', address + ', Port:', udpPort.options.localPort);
-      });
       dbg.log('SendingTo');
 
       dbg.log(' Host:', udpPort.options.remoteAddress + ', Port:', udpPort.options.remotePort);
@@ -88,6 +83,13 @@ export class OSCServerModule {
       this.defferReconnect(udpPort)
     });
 
+    udpPort.on("open", () => {
+      // console.log(">>>>>>opened");
+      clearTimeout(udpPort.timeout);
+      udpPort.isConnected = true;
+    })
+
+
     this.tryReConnect(udpPort, true)
   }
 
@@ -96,6 +98,10 @@ export class OSCServerModule {
       dbg.log("closing udpPort")
       this.udpPort.isConnected = false;
       this.udpPort.close();
+      if (this.udpPort.socket) {
+        console.log("killing socket")
+        delete this.udpPort.socket
+      }
     }
     else {
       dbg.error("can't close")
@@ -128,7 +134,7 @@ export class OSCServerModule {
     if (!firstAttempt)
       dbg.warn('try connect', port.options.localAddress, port.options.localPort)
     try {
-
+      this.close();
       port.open();
     } catch (e) {
       dbg.error('can\'t connect to ', port.localAddress, port.localPort, e)
