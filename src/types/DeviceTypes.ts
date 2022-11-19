@@ -17,7 +17,7 @@ export interface Device {
 
 export function newEmptyDevice(deviceName: string, fields?: any): Device {
   fields = fields || {}
-  return { deviceName, port: fields.port, ip: fields.ip || 'null', caps: fields.caps || {}, niceName: fields.niceName || 'no niceName', rssi: fields.rssi || -1, activate: fields.activate || false, uuid: fields.uuid || 'auto@' + Math.ceil(Math.random() * 10e6), group: fields.group || '', lastTimeModified: new Date() }
+  return { deviceName, port: fields.port, ip: fields.ip || 'null', caps: fields.caps || {}, niceName: fields.niceName || 'no niceName', rssi: fields.rssi || -1, activate: fields.activate || false, uuid: fields.uuid || 'auto@' + Math.ceil(Math.random() * 10e6), group: fields.group || '', lastTimeModified: new Date(Date.UTC(0, 0, 0, 0, 0, 0)) }
 }
 
 export type DeviceDic = { [id: string]: Device };
