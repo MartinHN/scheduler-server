@@ -11,6 +11,7 @@ import { CapTypeInstance, CapTypeName } from './types/CapTypes';
 import ping from 'ping'
 import { DeviceDic } from './types';
 import * as appPaths from './filePaths'
+import { getIPAddresses } from './lib/networkUtils';
 
 export interface PiConInfo {
   uuid: string;
@@ -90,10 +91,10 @@ export function advertiseServerDNS() {
 
 
 let dnsActive = false;
-const hasPingEnabled = false;
-const MDNSInterval = hasPingEnabled ? 10000 : 5000;
+const hasPingEnabled = true;
+const MDNSInterval = 3000;
 const pingInterval = 3000;
-let interval: any;
+let broadcastMDNSInterval: any;
 let pingIntervalObj: any;
 export function setDNSActive(b) {
   dnsActive = b;
@@ -102,7 +103,7 @@ export function setDNSActive(b) {
     listenDNS()
   }
   else {
-    if (interval) { clearInterval(interval) };
+    if (broadcastMDNSInterval) { clearInterval(broadcastMDNSInterval) };
   }
 }
 
@@ -110,24 +111,37 @@ export function setDNSActive(b) {
 function broadcastMDNS(query, force = false) {
   if (!dnsActive && !force) { return; }
   const curD = new Date();
+  const toRm = {} as typeof model.availableRPI
   for (const [k, v] of Object.entries(model.availableRPI)) {
     if ((curD.getTime() - v.lastT.getTime()) >= pingInterval + 10000) {
       dbg.warn('disconnected', k, (curD.getTime() - v.lastT.getTime()))
       const old = model.availableRPI[k];
+      toRm[k] = old;
       delete model.availableRPI[k]
       model.emit("close", old)
     }
   }
 
-  dbg.log("updateMDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
-  // force callback
-  for (const s of Object.values(model.availableRPI)) {
-    (query as any)._removeService(s.service.fqdn);
+  if (getIPAddresses().length !== 0) {
+    if (Object.values(toRm).length > 0) {
+      dbg.log("updateMDNS", Object.values(toRm).map(pi => pi.uuid))
+      // // force callback
+      for (const s of Object.values(toRm)) {
+        (query as any)._removeService(s.service.fqdn);
+      }
+
+      query.update();
+    }
   }
-  query.update();
+  else {
 
+    dbg.warn("uforce update MDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
 
-
+    for (const s of Object.values(model.availableRPI)) {
+      (query as any)._removeService(s.service.fqdn);
+    }
+    query.update();
+  }
 }
 function pingAllPis() {
   const appFilePaths = appPaths.getConf();
@@ -138,7 +152,6 @@ function pingAllPis() {
     timeout: pingInterval,
   };
   for (const s of Object.values(knownDevices)) {
-
     (function (curPi) {
       const host = curPi.ip
       const hostName = curPi.deviceName
@@ -158,9 +171,10 @@ function pingAllPis() {
 
 }
 
+let bonjour;
 export function listenDNS(): Model {
   console.log(">>>>>>>>>>>>>>>>>start listening Piiii")
-  const bonjour = bonjourM()
+  bonjour = bonjourM()
   const query = bonjour.find({ type: 'rspstrio', protocol: 'udp' }, (_service) => {
     const service = JSON.parse(JSON.stringify(_service))
     let uuid = service.txt["uuid"];
@@ -177,7 +191,7 @@ export function listenDNS(): Model {
       model.emit("open", uuid)
     }
     else {
-      dbg.log('Pingfor :', uuid)
+      dbg.log('MDNSResp for :', uuid)
 
       model.availableRPI[uuid].lastT = new Date()
 
@@ -195,8 +209,8 @@ export function listenDNS(): Model {
 
   })
 
-  if (interval) { clearInterval(interval) };
-  interval = setInterval(() => {
+  if (broadcastMDNSInterval) { clearInterval(broadcastMDNSInterval); };
+  broadcastMDNSInterval = setInterval(() => {
     broadcastMDNS(query);
   }, MDNSInterval)
   broadcastMDNS(query, true);
