@@ -52,7 +52,12 @@ export function getMac() {
 export function getRSSI() {
     let res = 0
     try {
-        res = parseInt(execSync("cat /proc/net/wireless | awk 'END { print $4 }' | sed 's/\.$//'").toString())
+        if (isOSX) {
+            const l = execSync("/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | grep -E 'CtlRSSI'").toString();
+            res = parseInt(l.split(":")[1]);
+        }
+        else
+            res = parseInt(execSync("cat /proc/net/wireless | awk 'END { print $4 }' | sed 's/\.$//'").toString())
         // res=parseInt( execSync('iwlist wlan0 scanning | grep  -Eo "....dBm"').toString());
     }
     catch (e) {
