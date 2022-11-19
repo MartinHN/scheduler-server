@@ -16,10 +16,10 @@ import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
 import { willBeRunningForDate, getAgenda, startSchedule, getAgendaShouldActivate } from './schedule'
-import multicastdns from 'multicast-dns';
+
 
 import { isPi, isOSX } from './platformUtil'
-import * as os from 'os'
+import { getIpOfInterface } from './lib/networkUtils'
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
 const targetIf = isPi ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
@@ -376,30 +376,12 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
 
 
 
-  const getIPOfMulticastInterface = () => {
-    if (targetIf as string === "") return undefined
-    const interfaces = os.networkInterfaces();
-
-    for (const ifName of Object.keys(interfaces)) {
-      if (ifName !== targetIf) { continue }
-      const addresses = interfaces[ifName];
-      for (const addressInfo of addresses) {
-        if (addressInfo.family === 'IPv4' && !addressInfo.internal) {
-          return addressInfo.address;
-        }
-      }
-    }
-
-    return "";
-  };
-
-
 
   function tryPublish() {
     try {
-      let ifaceIp = getIPOfMulticastInterface();
+      let ifaceIp = getIpOfInterface(targetIf);
       if (ifaceIp === "") {
-        throw Error("no ip for iface " + targetIf)
+        // throw Error("no ip for iface " + targetIf)
       }
 
       dbg.warn("using iface >>>> " + ifaceIp)
@@ -408,17 +390,28 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
       //ts-ignore : next-line???
       const bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
       // advertise an localEndpoint server
+      const serv = (bonjour as any)._server;
+      const oldQCb = serv._respondToQuery;
 
+      if (oldQCb) {
+        serv.mdns.off('query', oldQCb)
+        serv.mdns.on('query',
+          (q) => {
+            if (getIpOfInterface(targetIf) !== "")
+              serv._respondToQuery(q);
+            else {
+              console.warn(">>>>>>>>>>>>no interface available prevent unhandled throw ")
+
+            }
+          })
+
+      }
+      else {
+        console.error("!!!!!no cb to override")
+      }
 
       bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
 
-
-      // const mdnsCustomResponder = multicastdns(mdnsOpts)
-      // mdnsCustomResponder.setMaxListeners(0)
-
-      // mdnsCustomResponder.on('query', (query)=>{
-      //     console.log(">>>>>>>>>>>new query",query);
-      // })
     }
     catch (e) {
       dbg.error("MDNS publish error", e);
