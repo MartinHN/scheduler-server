@@ -73,7 +73,7 @@ class Model extends EventEmitter {
     if (serviceEP) {
       return piFromService(serviceEP.uuid, serviceEP.service);
     }
-    dbg.error(">>>>>>>>> no service found for ip ", ip)
+    dbg.error(">>>>>>>>> no service found for ip ", ip, (Object.values(this.availableRPI).map(p => p.service.addresses)))
   }
 
 }
@@ -108,6 +108,7 @@ export function setDNSActive(b) {
 }
 
 
+let lastIFs = [];
 function broadcastMDNS(query, force = false) {
   if (!dnsActive && !force) { return; }
   const curD = new Date();
@@ -122,26 +123,29 @@ function broadcastMDNS(query, force = false) {
     }
   }
 
-  if (getIPAddresses().length !== 0) {
-    if (Object.values(toRm).length > 0) {
-      dbg.log("updateMDNS", Object.values(toRm).map(pi => pi.uuid))
-      // // force callback
-      for (const s of Object.values(toRm)) {
-        (query as any)._removeService(s.service.fqdn);
-      }
 
-      query.update();
-    }
-  }
-  else {
 
-    dbg.warn("uforce update MDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
-
-    for (const s of Object.values(model.availableRPI)) {
+  // if (getIPAddresses().length !== 0) {
+  if (Object.values(toRm).length > 0) {
+    dbg.log("removeMDNS", Object.values(toRm).map(pi => pi.uuid))
+    // // force callback
+    for (const s of Object.values(toRm)) {
       (query as any)._removeService(s.service.fqdn);
     }
+    dbg.log("updateMDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
     query.update();
   }
+  //   }
+  // }
+  // else {
+
+  //   dbg.warn("uforce update MDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
+
+  //   for (const s of Object.values(model.availableRPI)) {
+  //     (query as any)._removeService(s.service.fqdn);
+  //   }
+  //   query.update();
+  // }
 }
 function pingAllPis() {
   const appFilePaths = appPaths.getConf();
@@ -174,7 +178,12 @@ function pingAllPis() {
 let bonjour;
 export function listenDNS(): Model {
   console.log(">>>>>>>>>>>>>>>>>start listening Piiii")
-  bonjour = bonjourM()
+  lastIFs = getIPAddresses();
+  if (bonjour) bonjour.destroy()
+
+  const mdnsOpts = { interface: "0.0.0.0" };
+  //ts-ignore : next-line
+  bonjour = bonjourM(mdnsOpts)
   const query = bonjour.find({ type: 'rspstrio', protocol: 'udp' }, (_service) => {
     const service = JSON.parse(JSON.stringify(_service))
     let uuid = service.txt["uuid"];
@@ -211,6 +220,14 @@ export function listenDNS(): Model {
 
   if (broadcastMDNSInterval) { clearInterval(broadcastMDNSInterval); };
   broadcastMDNSInterval = setInterval(() => {
+    if (lastIFs.join(" ") !== getIPAddresses().join(" ")) {
+      dbg.warn("!!!!!!interfaces changed restart dns", lastIFs, getIPAddresses())
+      for (const s of Object.values(model.availableRPI)) {
+        (query as any)._removeService(s.service.fqdn);
+      }
+      listenDNS();
+      return;
+    }
     broadcastMDNS(query);
   }, MDNSInterval)
   broadcastMDNS(query, true);
