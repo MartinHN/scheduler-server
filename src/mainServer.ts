@@ -57,6 +57,8 @@ export function startMainServer(serverReadyCb) {
     if (pi) {
       updateKnownPi(pi)
     }
+    else
+      dbg.error("no pi found iwhen opening")
     sendToPi(pi, "/activate", [])
 
 
@@ -65,8 +67,8 @@ export function startMainServer(serverReadyCb) {
 
 
   })
-  pis.on("close", (pi) => {
-    dbg.log("no more pi", pi.uuid)
+  pis.on("close", (piUuid) => {
+    dbg.log("no more pi", piUuid)
     wsServer.broadcast({ type: "connectedDeviceList", data: pis.getAvailablePis() })
   })
 
@@ -97,7 +99,7 @@ export function startMainServer(serverReadyCb) {
         }
         pi = knownPi;
         dbg.warn('pi not found', args?.uuid, "using registred on ilast known ip", pi.ip);
-        dbg.log("connected : ", Object.values(pis.getAvailablePis()).map(e => e.uuid))
+        dbg.warn("connected : ", Object.values(pis.getAvailablePis()).map(e => e.uuid))
 
       }
 
