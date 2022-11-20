@@ -375,6 +375,7 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
 
 
 
+  let bonjour;
 
 
   function tryPublish() {
@@ -386,25 +387,32 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
 
       dbg.warn("using iface >>>> " + ifaceIp)
 
+      if (bonjour) {
+        const serv = (bonjour as any)._server;
+        serv.mdns.off('query', serv._respondToQuery);
+        bonjour.destroy()
+      }
       const mdnsOpts = { interface: undefined };
       //ts-ignore : next-line???
-      const bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
+      bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
       // advertise an localEndpoint server
       const serv = (bonjour as any)._server;
       const oldQCb = serv._respondToQuery;
 
+
       if (oldQCb) {
-        serv.mdns.off('query', oldQCb)
+        dbg.warn("overriding mdns cb")
+        serv.mdns.removeAllListeners('query')
         serv.mdns.on('query',
-          (q) => {
-            if (getIpOfInterface(targetIf) !== "")
-              serv._respondToQuery(q);
+          (query) => {
+            if (getIpOfInterface(targetIf) !== "") {
+              serv._respondToQuery(query);
+            }
             else {
               console.warn(">>>>>>>>>>>>no interface available prevent unhandled throw ")
 
             }
           })
-
       }
       else {
         console.error("!!!!!no cb to override")
