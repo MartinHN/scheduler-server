@@ -261,7 +261,7 @@ export function startMainServer(serverReadyCb) {
   }
 
   async function checkAgendaDisabledOnPis() {
-    for (const c of pis.getAvailablePis()) {
+    for (const c of getKnownPis()) {
       try {
         checkAgendaDisabledOnPi(c)
       } catch (e) {
@@ -298,7 +298,7 @@ export function startMainServer(serverReadyCb) {
       return
     }
     dbg.log('>>>> checking all up to date')
-    for (const c of pis.getAvailablePis()) {
+    for (const c of getKnownPis()) {
       try {
         await checkEndpointUpToDate(c)
       } catch (e) {
