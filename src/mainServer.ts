@@ -323,14 +323,23 @@ export function startMainServer(serverReadyCb) {
       dbg.error("force disabling agenda ")
     }
     dbg.warn('inauguration set to ' + isInaugurationMode ? 'on' : 'off');
-    for (const p of getKnownPis()) {
-      try {
-        sendToPi(p, "/activate", [isInaugurationMode ? 1 : 0])
-        // checkEndpointUpToDate(c)
-      } catch (e) {
-        dbg.error("trying to update ep", e)
+
+    const sendAll = () => {
+      for (const p of getKnownPis()) {
+        try {
+          sendToPi(p, "/activate", [isInaugurationMode ? 1 : 0])
+          // checkEndpointUpToDate(c)
+        } catch (e) {
+          dbg.error("trying to update ep", e)
+        }
       }
     }
+
+    // redundancyyyyyy
+    sendAll();
+    setTimeout(() => { sendAll() }, 200);
+    setTimeout(() => { sendAll() }, 300);
+
   }
 
 
