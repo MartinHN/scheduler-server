@@ -319,6 +319,7 @@ export function startMainServer(serverReadyCb) {
     isInaugurationMode = b
     if (!isAgendaDisabled) {
       isAgendaDisabled = true;
+      wsServer.broadcast({ type: "isAgendaDisabled", data: isAgendaDisabled })
       checkAgendaDisabledOnPis();
       dbg.error("force disabling agenda ")
     }
