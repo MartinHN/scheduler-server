@@ -149,6 +149,14 @@ app.get('/time', (req, res) => {
   res.send(to);
 })
 
+
+app.get('/rssi', (req, res) => {
+  res.setHeader('Content-Type', 'application/text');
+  const to = sys.getRSSI();
+  dbg.log("getting rssi", to)
+  res.send(to);
+})
+
 // restGetSetConf("nickName");
 // restGetSet("hostName",sys.getHostName,(n)=>{
 //   uConf.setRW(true)
