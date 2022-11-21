@@ -152,7 +152,7 @@ app.get('/time', (req, res) => {
 
 app.get('/rssi', (req, res) => {
   res.setHeader('Content-Type', 'application/text');
-  const to = sys.getRSSI();
+  const to = "" + sys.getRSSI();
   dbg.log("getting rssi", to)
   res.send(to);
 })
