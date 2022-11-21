@@ -17,6 +17,11 @@ let isInaugurationMode = false;
 
 let isAgendaDisabled = false;
 
+function getKnownPis() {
+  const appFilePaths = appPaths.getConf();
+  const pis = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+  return Object.values(pis);
+}
 
 export function startMainServer(serverReadyCb) {
   advertiseServerDNS()
@@ -318,7 +323,7 @@ export function startMainServer(serverReadyCb) {
       dbg.error("force disabling agenda ")
     }
     dbg.warn('inauguration set to ' + isInaugurationMode ? 'on' : 'off');
-    for (const p of pis.getAvailablePis()) {
+    for (const p of getKnownPis()) {
       try {
         sendToPi(p, "/activate", [isInaugurationMode ? 1 : 0])
         // checkEndpointUpToDate(c)
