@@ -6,6 +6,7 @@ const audioPlayerPort = 9009
 
 class AudioPlayer {
     udpPort: any;
+    wasActive = false;
     init() {
         this.udpPort = new osc.UDPPort({
             localAddress: "0.0.0.0",
@@ -27,9 +28,11 @@ class AudioPlayer {
     activate(b: boolean) {
         dbg.log("act", b)
         if (b) {
-            this.sendOSC("/loop")
+            if (!this.wasActive) // do not restart
+                this.sendOSC("/loop")
         }
         else { this.sendOSC("/stop") }
+        this.wasActive = b;
     }
 
     playOnce() {
