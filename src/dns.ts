@@ -162,7 +162,7 @@ function pingAllPis() {
       // dbg.log(`[ping] will ping host ${hostName} (${host})`);
       ping.sys.probe(host, (isAlive) => {
         // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
-        dbg.log(msg);
+        // dbg.log(msg);
         const resolvedPi = model.availableRPI[curPi.uuid]
         if (isAlive) {
           if (resolvedPi) { resolvedPi.lastT = new Date(); }
