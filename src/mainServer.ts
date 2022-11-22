@@ -234,8 +234,15 @@ export function startMainServer(serverReadyCb) {
       return false;
     }
     const data = fs.readFileSync(agendaPath).toString()
-    return await checkRemoteResource(p, "/agendaFile", JSON.parse(data));
+    try {
+      await checkRemoteResource(p, "/agendaFile", JSON.parse(data));
 
+    } catch (e) {
+      console.error("can't check agenda on pi", p.deviceName, e);
+      return false;
+    }
+
+    return true;
   }
 
 
