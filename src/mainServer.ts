@@ -339,7 +339,8 @@ export function startMainServer(serverReadyCb) {
     // redundancyyyyyy
     sendAll();
     setTimeout(() => { sendAll() }, 200);
-    setTimeout(() => { sendAll() }, 300);
+    setTimeout(() => { sendAll() }, 500);
+    setTimeout(() => { sendAll() }, 1000);
 
   }
 
