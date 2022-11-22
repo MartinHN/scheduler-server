@@ -123,7 +123,7 @@ app.post('/groups', async (req, res) => {
 // Agendas
 app.get('/agendas', (req, res) => {
   const fn = getFileNameFromQ(req)
-  dbg.log("get agenda", fn)
+  // dbg.log("get agenda", fn)
   if (fs.existsSync(fn)) {
     res.setHeader('Content-Type', 'application/json');
     var readable = fs.createReadStream(fn);

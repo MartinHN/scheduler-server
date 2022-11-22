@@ -151,16 +151,17 @@ function pingAllPis() {
   const appFilePaths = appPaths.getConf();
   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
   if (!dnsActive || !hasPingEnabled) { return; }
-  dbg.log("[ping] >>>> start ping")
+  // dbg.log("[ping] >>>> start ping")
   const pingCfg = {
     timeout: pingInterval,
   };
-  for (const s of Object.values(knownDevices)) {
+  for (const s of Object.values(model.getAvailablePis())) {
     (function (curPi) {
       const host = curPi.ip
       const hostName = curPi.deviceName
+      // dbg.log(`[ping] will ping host ${hostName} (${host})`);
       ping.sys.probe(host, (isAlive) => {
-        var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
+        // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
         dbg.log(msg);
         const resolvedPi = model.availableRPI[curPi.uuid]
         if (isAlive) {
