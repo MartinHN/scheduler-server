@@ -11,7 +11,7 @@ function twoDig(n: number) {
 export function dateFromDayAndHourString(d: string, h: string): Date {
   const res = new Date(dateDayFromString(d))
   res.setHours(0)
-  console.log('hToMin', hourStringToMinutes(h), h)
+  // console.log('hToMin', hourStringToMinutes(h), h)
   res.setMinutes(hourStringToMinutes(h) || 0)
   return res
 }
