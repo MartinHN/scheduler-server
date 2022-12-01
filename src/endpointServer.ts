@@ -425,7 +425,9 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
       else {
         console.error("!!!!!no cb to override")
       }
-
+      if (sys.getMac() === "unknown") {
+        throw new Error("no mac available");
+      }
       bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
 
     }
