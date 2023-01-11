@@ -186,7 +186,14 @@ export function startMainServer(serverReadyCb) {
         }).on('end', async function () {
           const remoteData = Buffer.concat(bodyChunks).toString();
           // dbg.log(remoteData)
-          const remoteInfo = remoteData ? JSON.parse(remoteData) : {};
+          let remoteInfo = {};
+          try {
+            remoteInfo = remoteData ? JSON.parse(remoteData) : {};
+          }
+          catch (e) {
+            dbg.error("invalid json on " + p.uuid);
+            reject(e)
+          } 
 
           if (JSON.stringify(tgtObj) !== JSON.stringify(remoteInfo)) {
             dbg.warn("need update  " + addr, jdiff.diffString(remoteInfo, tgtObj));
