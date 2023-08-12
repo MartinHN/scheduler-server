@@ -8,6 +8,7 @@ export interface WSSimple extends WebSocket {
 
 export interface SrvSimple extends WebSocket.Server {
   broadcast(msg: any): void
+  broadcastBut(msg: any, sock: WebSocket): void
   sendTo(w: WebSocket, msg: any): void
   onMessage(w: WebSocket, msg: any): void
 }
@@ -26,7 +27,22 @@ function buildS(_s: WebSocket.Server) {
   s.broadcast = function (msg: any) {
     s.clients.forEach(c => s.sendTo(c, msg))
   }
+  s.broadcastBut = function (msg: any, butMe: WebSocket) {
+    let hadSkipped = false;
+    s.clients.forEach(c => {
+      if (c != butMe) {
+        s.sendTo(c, msg);
+      }
+      else hadSkipped = true;
+    })
+    if (!hadSkipped)
+      console.warn('broadcastBut did not skip')
+  }
   s.sendTo = function (w, msg) {
+    if (w.readyState !== WebSocket.OPEN) {
+      console.warn("can't send, socket was closed")
+      return
+    }
     w.send(JSON.stringify(msg))
   }
   return s;

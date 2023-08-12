@@ -129,10 +129,12 @@ export function startMainServer(serverReadyCb) {
       }
       else if (args.type === "isInaugurationMode") {
         setInaugurationMode(!!args.value)
+        wsServer.broadcastBut({ type: args.type, data: !!args.value }, ws);
       }
       else if (args.type === "isAgendaDisabled") {
         isAgendaDisabled = !!args.value
         checkAgendaDisabledOnPis();
+        wsServer.broadcastBut({ type: args.type, data: !!args.value }, ws);
 
       }
       else if (args.type === "isDNSActive") {

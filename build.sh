@@ -1,2 +1,2 @@
-npm i
-npm run build
+pnpm i
+pnpm run build
