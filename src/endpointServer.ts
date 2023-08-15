@@ -3,6 +3,7 @@
 ////////////////////////
 // SERVE
 import { hostname } from 'os';
+import { execSync } from 'child_process';
 import bonjourM, { RemoteService, Service } from 'bonjour'
 import * as dbg from './dbg'
 import fs from 'fs';
@@ -142,6 +143,13 @@ app.post('/post/agendaFile', async (req, res) => {
 //   uConf.setRW(false)
 // })
 
+app.get('/status', (req, res) => {
+  const st = execSync('/bin/bash /home/pi/raspestrio/checkService.sh').toString()
+  console.log(st);
+  // res.setHeader('Content-Type', 'application/json')
+  res.send('<plaintext>' + st + '</plaintext>');
+})
+
 app.get('/time', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   const to = { localTime: Date().toString(), utcTime: new Date().toUTCString() }
@@ -255,6 +263,7 @@ if (isPi) {
 import { OSCServerModule } from './lib/OSCServerModule'
 import ConfFileWatcher from './ConfFileWatcher';
 import { debug } from 'console';
+
 
 
 /// describe basic functionality of endpoints
@@ -417,7 +426,7 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
               serv._respondToQuery(query);
             }
             else {
-              console.warn(">>>>>>>>>>>>no interface available prevent unhandled throw ")
+              console.warn(">>>>>>>>>>>>no interface available prevent unhandled throw ", targetIf)
 
             }
           })
