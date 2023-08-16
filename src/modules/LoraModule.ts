@@ -11,9 +11,9 @@ import { LoraState, DefaultLoraState } from '../types/LoraState';
 
 
 function execOnPiOnly(cmd) {
+    console.log('cmd will run : ' + cmd)
     if (isPi)
         return execSync(cmd).toString();
-    console.log('cmd would run : ' + cmd)
 }
 
 function sysctlCmd(opts: string) {
