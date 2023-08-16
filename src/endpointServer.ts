@@ -147,7 +147,7 @@ app.get('/status', (req, res) => {
   const st = execSync('/bin/bash /home/pi/raspestrio/checkService.sh').toString()
   console.log(st);
   // res.setHeader('Content-Type', 'application/json')
-  res.send('<plaintext>' + st + '</plaintext>');
+  res.send('<pre>' + st + '</pre>');
 })
 
 app.get('/time', (req, res) => {
