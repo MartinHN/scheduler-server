@@ -22,7 +22,7 @@ class RelayWr {
 }
 
 class Relay {
-    pinNums = [14, 15]
+    pinNums = [27, 22]
     rels: RelayWr[]
     constructor() {
         this.rels = []
