@@ -70,7 +70,7 @@ export default class LoraModule {
             throw new Error("invalid lora config")
 
         this.activateService(false);
-        execOnPiOnly(`e32 -w ${hex}`)
+        execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
         if (this.state.isActive)
             this.activateService(true);
     }
