@@ -214,10 +214,18 @@ app.post('/state', async (req, res) => {
 })
 
 
+
+//////////////
+// lora
+
+const loraMod = new LoraModule(app)
+
+
 /// serve Vue
 
 import history from 'connect-history-api-fallback'
 import { DeviceDic, Groups } from './types';
+import LoraModule from './modules/LoraModule';
 app.use(history({}))
 
 

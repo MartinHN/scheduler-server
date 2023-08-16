@@ -32,7 +32,7 @@ export default class ConfFileWatcher {
             this.cb(data)
         }
         catch (e) {
-            dbg.error("error opening conf", this.confFile)
+            dbg.error("error opening conf", this.confFile, e)
         }
     }
 }
