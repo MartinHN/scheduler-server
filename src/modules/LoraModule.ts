@@ -76,9 +76,9 @@ export default class LoraModule {
     }
     activateService(b: boolean) {
         uConf.setRW(true)
-        sysctlCmd((b ? 'enable' : 'disable  e32.service '))
+        sysctlCmd((b ? 'enable' : 'disable '))
         uConf.setRW(false)
-        sysctlCmd(b ? 'start' : 'stop')
+        sysctlCmd(b ? 'start' : 'stop  e32.service ')
     }
 
     isServiceEnabled() {
