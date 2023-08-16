@@ -5,4 +5,6 @@ if [[ -f $RCF ]]; then
 fi
 
 #/home/pi/.local/share/pnpm/npm run run -- -c
-sudo node --experimental-modules --es-module-specifier-resolution=node out/index.js -c
+NODE_BIN=$(which node)
+
+sudo $NODE_BIN --experimental-modules --es-module-specifier-resolution=node out/index.js -c
