@@ -6,6 +6,5 @@ if [[ -f $RCF ]]; then
 fi
 
 #/home/pi/.local/share/pnpm/npm run run -- -c
-NODE_BIN=$(which node)
 
-$SUDO $NODE_BIN --experimental-modules --es-module-specifier-resolution=node out/index.js -c
+$SUDO node --unhandled-rejections=strict --experimental-modules --es-module-specifier-resolution=node out/index.js -c

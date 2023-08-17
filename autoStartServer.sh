@@ -6,6 +6,5 @@ if [[ -f $RCF ]]; then
 fi
 #cd server
 # npm run run -- --srv
-NODE_BIN=$(which node)
 
-$SUDO $NODE_BIN --experimental-modules --es-module-specifier-resolution=node out/index.js --srv -c
+$SUDO node --unhandled-rejections=strict --experimental-modules --es-module-specifier-resolution=node out/index.js --srv -c
