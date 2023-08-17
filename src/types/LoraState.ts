@@ -37,7 +37,7 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
     return validErr('uuid')
 
   s.channel = parseInt('' + s.channel)
-  if ((s.channel < 0) || (s.channel > 31))
+  if ((s.channel < 0) || (s.channel > maxLoraChanNum))
     return validErr('channel')
 
   s.speed = parseInt('' + s.speed)
@@ -51,18 +51,18 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
 
 ////////////:
 /// channels
-export const defaultLoraChan = 23;
-export const maxLoraChanNum = (2 ** 5) - 1
-
-export function chanToHz(c: number) {
-  const chan = Math.round((c / maxLoraChanNum) * 54)
+export const defaultLoraChan = 40;
+const maxLoraChanNum = 54
+export function chanToMHz(c: number) {
+  c = Math.max(0, Math.min(maxLoraChanNum, c))
+  const chan = Math.round(c)
   return 160 + chan * .250
 }
 
 export const chanToHzTable = new Array<number>()
 
 for (let i = 0; i < maxLoraChanNum; i++)
-  chanToHzTable.push(chanToHz(i))
+  chanToHzTable.push(chanToMHz(i))
 
 export function chanToHex(c: number) {
   let res = Buffer.from([23])[0].toString(16)

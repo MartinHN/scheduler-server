@@ -15,14 +15,14 @@ function execOnPiOnly(cmd) {
     if (isPi)
         return execSync(cmd).toString();
     else
-        execSync('sleep 5');
+        execSync('sleep 1');
 }
 
 function sysctlCmd(opts: string) {
     return execOnPiOnly(`sudo systemctl ${opts} lora.service`)
 }
 
-const defaultHexConf = "C200001B1744"
+const defaultHexConf = "C200001B2844"
 
 
 function buildHexConfFromState(o: LoraState) {
@@ -37,9 +37,8 @@ function buildHexConfFromState(o: LoraState) {
     const SPED = 3
     const CHAN = 4
     const OPTION = 5
-    console.log("setting speed", o.speed)
     b = setDecBits(b, SPED, 0, 3, o.speed)
-    b = setDecBits(b, CHAN, 0, 5, o.channel)
+    b = setDecBits(b, CHAN, 0, 6, o.channel)
     b = setBit(b, OPTION, 2, o.fec);
 
     let res = bufToHexStr(b)
