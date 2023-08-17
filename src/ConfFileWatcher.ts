@@ -3,7 +3,7 @@ import * as uConf from './userConf'
 import * as dbg from './dbg'
 import path from 'path'
 export default class ConfFileWatcher {
-    constructor(public confFile: string, public cb: (confObj: any) => void, defaultConf = ({} as any)) {
+    constructor(public confFile: string, public cb: (confObj: any) => void, public defaultConf = ({} as any)) {
 
         if (!fs.existsSync(this.confFile)) {
             dbg.warn("generating default conf", confFile)
@@ -27,12 +27,19 @@ export default class ConfFileWatcher {
 
     async loadConf(hint = "change") {
         dbg.log('loadinf conf', this.confFile);
+        let data;
         try {
-            const data = JSON.parse(fs.readFileSync(this.confFile).toString())
+            data = JSON.parse(fs.readFileSync(this.confFile).toString())
+        }
+        catch (e) {
+            dbg.error("error opening conf set default instead", this.confFile, e)
+            data = this.defaultConf
+        }
+        try {
             this.cb(data)
         }
         catch (e) {
-            dbg.error("error opening conf", this.confFile, e)
+            dbg.error("error parsing conf", this.confFile, e)
         }
     }
 }
