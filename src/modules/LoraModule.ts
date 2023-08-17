@@ -6,7 +6,7 @@ import * as sys from '../sysUtils'
 import { isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { execSync } from 'child_process';
-import { LoraState, DefaultLoraState } from '../types/LoraState';
+import { LoraState, DefaultLoraState, validateLoraState } from '../types/LoraState';
 
 
 
@@ -20,26 +20,24 @@ function sysctlCmd(opts: string) {
     return execOnPiOnly(`sudo systemctl ${opts} lora.service`)
 }
 
-const defaultHexConf = "C200001B2844"
-function testHexConf() {
-    const dS = new DefaultLoraState()
-    const res = buildHexConfFromState(dS);
-    if (res != defaultHexConf) {
-        throw new Error("hex conf is bugyy got " + res + " insteadof " + defaultHexConf)
-    }
-}
-testHexConf();
+const defaultHexConf = "C200001B1744"
+
 
 function buildHexConfFromState(o: LoraState) {
     //isPi ? execOnPiOnly("e32 -s | grep Settings Raw Value:") :
     //  "0xc000001b2844"// 
+    if (!validateLoraState(o))
+        throw new Error("invalid state")
     let b = hexStrToBuf(defaultHexConf);
     if (b.byteLength != 6) {
         throw new Error("invalid")
     }
     const SPED = 3
+    const CHAN = 4
     const OPTION = 5
-
+    console.log("setting speed", o.speed)
+    b = setDecBits(b, SPED, 0, 3, o.speed)
+    b = setDecBits(b, CHAN, 0, 5, o.channel)
     b = setBit(b, OPTION, 2, o.fec);
 
     let res = bufToHexStr(b)
@@ -57,6 +55,8 @@ export default class LoraModule {
     }
 
     parseConf(o: LoraState) {
+        if (!validateLoraState(o, true))
+            console.error("received incomplete lora state", o)
         this.state = o;
         if (this.isServiceEnabled() != !!o.isActive)
             this.activateService(!!o.isActive)
@@ -74,6 +74,7 @@ export default class LoraModule {
         if (this.state.isActive)
             this.activateService(true);
     }
+
     activateService(b: boolean) {
         uConf.setRW(true)
         sysctlCmd((b ? 'enable' : 'disable '))
@@ -90,13 +91,11 @@ export default class LoraModule {
     initHttpEndpoints(app) {
         app.post('/lora/state', async (req, res) => {
             const s = req.body;
-            const appFilePaths = appPaths.getConf();
-            if (s.isActive == undefined) {
-                return false;
-            }
-            this.state.isActive = !!s.isActive
-            this.state.isMasterClock = !!s.isMasterClock
-            this.state.fec = !!s.fec
+            console.log("got lora state", JSON.stringify(s))
+            if (!validateLoraState(s, true))
+                console.error("html sent invalid lora state", req.body)
+
+            Object.assign(this.state, s)
             // should trigger parseConf()?
             appPaths.writeFileObj(this.confFile, this.state);
 
@@ -137,9 +136,9 @@ function bufToHexStr(b: Buffer) {
 
     return res
 }
-function dec2bin(dec) {
+function dec2bin(dec, alignMod = 4) {
     let r = (dec >>> 0).toString(2);
-    while ((r.length % 4) != 0)
+    while (alignMod > 0 && ((r.length % alignMod) != 0))
         r = "0" + r
     return r;
 }
@@ -162,3 +161,22 @@ function setBit(buf, byte, bit, value) {
     buf[byte] = nV
     return buf;
 }
+
+function setDecBits(buf, byte, from, len, value) {
+    const bValue = dec2bin(value, len)
+    // console.log(bValue)
+    for (let i = 0; i < len; i++) {
+        // console.log(i,)
+        buf = setBit(buf, byte, from + i, bValue.charAt(len - 1 - i) == "1")
+    }
+    return buf
+}
+
+function testHexConf() {
+    const dS = new DefaultLoraState();
+    const res = buildHexConfFromState(dS);
+    if (res != defaultHexConf) {
+        throw new Error("hex conf is bugyy got " + res + " insteadof " + defaultHexConf);
+    }
+}
+testHexConf();
