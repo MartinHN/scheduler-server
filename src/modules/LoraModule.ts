@@ -14,6 +14,8 @@ function execOnPiOnly(cmd) {
     console.log('cmd will run : ' + cmd)
     if (isPi)
         return execSync(cmd).toString();
+    else
+        execSync('sleep 5');
 }
 
 function sysctlCmd(opts: string) {
@@ -48,7 +50,7 @@ export default class LoraModule {
     confWatcher: ConfFileWatcher;
     public state: LoraState;
     public confFile = appPaths.getConf().baseDir + "/lora.json"
-
+    private confTimeout
     constructor(httpApp: Express.Application) {
         this.initHttpEndpoints(httpApp)
         this.confWatcher = new ConfFileWatcher(this.confFile, obj => { this.parseConf(obj) }, new DefaultLoraState());
@@ -60,7 +62,9 @@ export default class LoraModule {
         this.state = o;
         if (this.isServiceEnabled() != !!o.isActive)
             this.activateService(!!o.isActive)
-        this.setHexConf(buildHexConfFromState(this.state))
+        if (this.confTimeout)
+            clearTimeout(this.confTimeout)
+        this.confTimeout = setTimeout(() => this.setHexConf(buildHexConfFromState(this.state)), 1000)
     }
 
 
@@ -69,16 +73,24 @@ export default class LoraModule {
         if (hex.length != defaultHexConf.length)
             throw new Error("invalid lora config")
 
-        this.activateService(false);
-        execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
-        if (this.state.isActive)
-            this.activateService(true);
+        this.setServiceRunning(false);
+        setTimeout(() => {
+            if (this.isServiceEnabled())
+                throw Error("e32 sevice shold be disabled!!!")
+            execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
+            if (this.state.isActive)
+                this.setServiceRunning(true);
+        }, 100)
     }
 
     activateService(b: boolean) {
         uConf.setRW(true)
         sysctlCmd((b ? 'enable' : 'disable '))
         uConf.setRW(false)
+        this.setServiceRunning(b)
+    }
+
+    setServiceRunning(b: boolean) {
         sysctlCmd(b ? 'start' : 'stop  e32.service ')
     }
 

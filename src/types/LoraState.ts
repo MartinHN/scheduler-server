@@ -18,7 +18,7 @@ export class DefaultLoraState implements LoraState {
 }
 
 export function validateLoraState(s: LoraState, fillWithDefaults = false) {
-  console.log('checking', s)
+  // console.log('checking', s)
   const validErr = (pn: string) => {
     console.error("got lora valid error", pn, s[pn])
     if (fillWithDefaults)
@@ -27,7 +27,7 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
     return false
   }
   for (const n of ['isActive', 'isMasterClock', 'uuid', 'channel', 'speed', 'fec']) {
-    console.log("check defined", n, s[n])
+    // console.log("check defined", n, s[n])
     if (s[n] === undefined)
       return validErr(n)
   }
@@ -43,8 +43,6 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
   s.speed = parseInt('' + s.speed)
   if ((s.speed < 0) || (s.speed >= airDataRates.length))
     return validErr('speed')
-
-
 
   return true
 
