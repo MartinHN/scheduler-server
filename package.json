@@ -11,7 +11,7 @@
     "start": "node --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "debug": "node --inspect --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "build": "tsc",
-    "deploy": "rsync -r -e ssh -avz --delete-after  out/ pi@lumestrio21.local:raspestrio/server/out/",
+    "deploy": "export PI_XCOMP=1 && pnpm run build && rsync -r -e ssh -avz --delete-after  out/ pi@lumestrio21.local:raspestrio/server/out/",
     "run": "node --experimental-modules --es-module-specifier-resolution=node  out/index.js",
     "runListenMad": "node --experimental-modules --es-module-specifier-resolution=node  out/listenMadMapper.js",
     "test": "node --experimental-modules --loader ts-node/esm ./tests/bonjourInstance.ts",
