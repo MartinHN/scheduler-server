@@ -6,5 +6,6 @@ if [[ -f $RCF ]]; then
 fi
 
 #/home/pi/.local/share/pnpm/npm run run -- -c
+NODE=$(which node) # cause sudo will loose the path
 
-$SUDO node --unhandled-rejections=strict --experimental-modules --es-module-specifier-resolution=node out/index.js -c
+$SUDO $NODE --unhandled-rejections=strict --experimental-modules --es-module-specifier-resolution=node out/index.js -c
