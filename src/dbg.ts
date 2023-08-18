@@ -25,18 +25,15 @@ const BgCyan = "\x1b[46m"
 const BgWhite = "\x1b[47m"
 
 
-function logColor(code, ...args) {
-    console.log(code, ...args, '\x1b[0m');
-}
 
 
 export function log(...args) {
-    logColor(FgWhite, ...args)
+    console.log(FgWhite, ...args, '\x1b[0m');
 }
 export function warn(...args) {
-    logColor(FgYellow, ...args)
+    console.warn(FgYellow, ...args, '\x1b[0m');
 }
 
 export function error(...args) {
-    logColor(FgRed, ...args)
+    console.error(FgRed, ...args, '\x1b[0m');
 } 
