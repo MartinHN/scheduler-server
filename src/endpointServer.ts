@@ -409,7 +409,7 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
         serv.mdns.off('query', serv._respondToQuery);
         bonjour.destroy()
       }
-      const mdnsOpts = { interface: undefined };
+      const mdnsOpts = { interface: "0.0.0.0" };
       //ts-ignore : next-line???
       bonjour = bonjourM(mdnsOpts);//{interface:[ifaceIp,"0.0.0.0"]})
       // advertise an localEndpoint server
@@ -456,7 +456,12 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
     activate(!!state)
 
   })
-
-
   return server
+}
+
+
+export function cleanShutdown() {
+
+
+
 }

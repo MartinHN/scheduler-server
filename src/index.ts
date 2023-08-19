@@ -5,6 +5,18 @@ function hasArg(n: string) {
   return process.argv.includes(n)
 }
 
+const shutDownFunctions = []
+function signalHandler(signal: NodeJS.Signals) {
+  // do some stuff here
+  console.log("handling sign", signal)
+  // shutDownFunctions.map(e => e())
+  process.exit(0);
+}
+
+
+process.on('SIGINT', signalHandler)
+process.on('SIGTERM', signalHandler)
+
 
 
 const isMainServer = hasArg('--srv');//uConf.getVariable("isMainServer");
@@ -17,9 +29,11 @@ if (!lastEl.startsWith('-')) {
 
 
 if (isMainServer) {
-  import('./mainServer').then(mod =>
+  import('./mainServer').then(mod => {
+    shutDownFunctions.push(mod.cleanShutdown)
     mod.startMainServer(() => {
-    }))
+    })
+  })
 
 }
 
@@ -33,7 +47,9 @@ if (startClient) {
   }
 
   import('./endpointServer').then(mod =>
-
-    mod.startEndpointServer({ endpointName, endpointPort: targetPort }))
+  {
+    shutDownFunctions.push(mod.cleanShutdown)
+    mod.startEndpointServer({ endpointName, endpointPort: targetPort })
+  })
 
 }

@@ -65,15 +65,16 @@ class Model extends EventEmitter {
     if (serviceEP) {
       return piFromService(serviceEP.uuid, serviceEP.service);
     }
-    dbg.error(">>>>>>>>> no service found for uuid", uuid)
+    dbg.error("[dns]>>>>>>>>> no service found for uuid", uuid)
   }
 
-  getPiForIP(ip: string) {
+  getPiForIP(ip: string, isAlive = false) {
     const serviceEP = Object.values(this.availableRPI).find(p => { return p.service.addresses.includes(ip) })
     if (serviceEP) {
+      if (isAlive) serviceEP.lastT = new Date()
       return piFromService(serviceEP.uuid, serviceEP.service);
     }
-    dbg.error(">>>>>>>>> no service found for ip ", ip, (Object.values(this.availableRPI).map(p => p.service.addresses)))
+    dbg.error("[dns]>>>>>>>>> no service found for ip ", ip, (Object.values(this.availableRPI).map(p => p.service.addresses.filter(e => !e.includes("::")))))
   }
 
 }
@@ -84,8 +85,9 @@ export function advertiseServerDNS() {
   const bonjour = bonjourM()
 
   // advertise an HTTP server 
-  bonjour.publish({ name: hostname(), host: 'tinmar.local', type: 'http', protocol: 'tcp', port: conf.serverPort })
-  bonjour.publish({ name: hostname(), /* host:'tinmar.local', */type: 'lumestrioMaster', protocol: 'tcp', port: conf.serverPort })
+  bonjour.publish({ name: hostname(),/* host: 'tinmar.local',*/ type: 'http', protocol: 'tcp', port: conf.serverPort })
+  // next line if androidjs
+  // bonjour.publish({ name: hostname(), /* host:'tinmar.local', */type: 'lumestrioMaster', protocol: 'tcp', port: conf.serverPort })
 
 }
 
@@ -93,7 +95,8 @@ export function advertiseServerDNS() {
 let dnsActive = false;
 const hasPingEnabled = true;
 const MDNSInterval = 3000;
-const pingInterval = 3000;
+const pingInterval = 5000;
+const pingTimeout = 2000;
 let broadcastMDNSInterval: any;
 let pingIntervalObj: any;
 export function setDNSActive(b) {
@@ -104,6 +107,7 @@ export function setDNSActive(b) {
   }
   else {
     if (broadcastMDNSInterval) { clearInterval(broadcastMDNSInterval) };
+    if (pingIntervalObj) { clearInterval(pingIntervalObj) }
   }
 }
 
@@ -127,12 +131,12 @@ function broadcastMDNS(query, force = false) {
 
   // if (getIPAddresses().length !== 0) {
   if (Object.values(toRm).length > 0) {
-    dbg.log("removeMDNS", Object.values(toRm).map(pi => pi.uuid))
+    dbg.log("[dns] removeMDNS", Object.values(toRm).map(pi => pi.uuid))
     // // force callback
     for (const s of Object.values(toRm)) {
       (query as any)._removeService(s.service.fqdn);
     }
-    dbg.log("updateMDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
+    dbg.log("[dns] updateMDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
     query.update();
   }
   //   }
@@ -151,15 +155,17 @@ function pingAllPis() {
   const appFilePaths = appPaths.getConf();
   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
   if (!dnsActive || !hasPingEnabled) { return; }
-  // dbg.log("[ping] >>>> start ping")
+  dbg.log("[dns] [ping] >>>> start ping")
   const pingCfg = {
-    timeout: pingInterval,
+    timeout: pingTimeout,
   };
-  for (const s of Object.values(model.getAvailablePis())) {
+
+
+  for (const s of Object.values(knownDevices)) {// Object.values(model.getAvailablePis())) {
     (function (curPi) {
       const host = curPi.ip
       const hostName = curPi.deviceName
-      // dbg.log(`[ping] will ping host ${hostName} (${host})`);
+      dbg.log(`[dns] [ping] will ping host ${hostName} (${host})`);
       ping.sys.probe(host, (isAlive) => {
         // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
         // dbg.log(msg);
@@ -190,7 +196,7 @@ export function listenDNS(): Model {
     let uuid = service.txt["uuid"];
 
     if (uuid === undefined) {
-      dbg.error("no uuid present in MDNS")
+      dbg.error("[dns]no uuid present in MDNS")
       uuid = [service.name, service.port].join('_');
     }
     if (!model.availableRPI[uuid]) {
@@ -234,11 +240,11 @@ export function listenDNS(): Model {
   broadcastMDNS(query, true);
 
 
-  if (pingIntervalObj) { clearInterval(pingIntervalObj) }
-  pingIntervalObj = setInterval(() => {
-    pingAllPis();
-  }, pingInterval)
-  pingAllPis();
+  // if (pingIntervalObj) { clearInterval(pingIntervalObj) }
+  // pingIntervalObj = setInterval(() => {
+  //   pingAllPis();
+  // }, pingInterval)
+  // pingAllPis();
 
   return model
 }

@@ -23,6 +23,10 @@ function getKnownPis() {
   return Object.values(pis);
 }
 
+export function cleanShutdown() {
+  // do nothing 
+}
+
 export function startMainServer(serverReadyCb) {
   advertiseServerDNS()
   const server = startServer(serverReadyCb)
@@ -152,18 +156,18 @@ export function startMainServer(serverReadyCb) {
   }
 
   function msgFromPi(msg, time, info) {
-    const pi = pis.getPiForIP(info.address)
+    const pi = pis.getPiForIP(info.address, true)
     if (pi) {
       if (msg) {
+        dbg.log(">>>>>>> from pi", msg)
         if (msg.address != "/rssi") {
-          dbg.log(">>>>>>> from pi", msg)
         }
         const toWeb = { uuid: pi.uuid, type: "resp", msg };
         wsServer.broadcast(toWeb)
       }
     }
     else {
-      dbg.error("msg from unknown pi", info.address)
+      dbg.error("msg from unknown pi", info.address, info)
     }
   }
 

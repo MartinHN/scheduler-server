@@ -16,7 +16,6 @@ export default class LoraModule {
     confWatcher: ConfFileWatcher;
     public state: LoraState;
     public confFile = appPaths.getConf().baseDir + "/lora.json"
-    private confTimeout
 
     private csock;
 

@@ -32,7 +32,7 @@ export default class ConfFileWatcher {
             data = JSON.parse(fs.readFileSync(this.confFile).toString())
         }
         catch (e) {
-            dbg.error("error opening conf set default instead", this.confFile, e)
+            dbg.error("error opening conf set default instead\n", this.confFile, e)
             data = this.defaultConf
         }
         try {
