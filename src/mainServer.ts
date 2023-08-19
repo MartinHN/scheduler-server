@@ -178,7 +178,7 @@ export function startMainServer(serverReadyCb) {
     const curDev = knownDevices[p.uuid]
     if (!curDev) {
       dbg.error('[app] checkRemoteResource no known device for pi', p.uuid || p)
-      return false;
+      return;
     }
 
     const baseEPURL = "http://" + p.ip + ":" + p.port
@@ -203,7 +203,7 @@ export function startMainServer(serverReadyCb) {
 
           if (JSON.stringify(tgtObj) !== JSON.stringify(remoteInfo)) {
             dbg.warn("need update  " + addr, jdiff.diffString(remoteInfo, tgtObj));
-            postJSON(p.ip, "/post" + addr, p.port, tgtObj)
+            await postJSON(p.ip, "/post" + addr, p.port, tgtObj).catch(e => resolve(undefined))
             resolve(false);
           }
           else {
@@ -244,18 +244,18 @@ export function startMainServer(serverReadyCb) {
     const agendaPath = appFilePaths.agendasFolder + "/" + agendaName
     if (!fs.existsSync(agendaPath)) {
       dbg.error('[app] checkEndpointAgendaIsUpToDate no known path for agenda')
-      return false;
+      return;
     }
     const data = fs.readFileSync(agendaPath).toString()
     try {
-      await checkRemoteResource(p, "/agendaFile", JSON.parse(data));
+      return await checkRemoteResource(p, "/agendaFile", JSON.parse(data));
 
     } catch (e) {
       console.error("can't check agenda on pi", p.deviceName, e);
-      return false;
     }
+    return undefined;
 
-    return true;
+
   }
 
 
@@ -292,10 +292,14 @@ export function startMainServer(serverReadyCb) {
 
   async function checkEndpointUpToDate(pi: PiConInfo) {
 
-    const agOk = !!(await checkEndpointAgendaIsUpToDate(pi));
+    const agOk = await checkEndpointAgendaIsUpToDate(pi);
     const infoOk = true;//!! (await checkEndpointInfoIsUpToDate(p));
     checkAgendaDisabledOnPi(pi);
-
+    const hadError = (agOk === undefined) || (infoOk === undefined)
+    if (hadError) {
+      dbg.warn("endpoint could not be updated", pi.deviceName, pi.uuid)
+      return undefined
+    }
     const isUpToDate = agOk && infoOk
     if (isUpToDate) {
       dbg.log("endpoint already up to date", pi.deviceName, pi.uuid)
@@ -318,9 +322,10 @@ export function startMainServer(serverReadyCb) {
       return
     }
     dbg.log('>>>> checking all up to date')
+    let res;
     for (const c of getKnownPis()) {
       try {
-        await checkEndpointUpToDate(c)
+        res ||= (await checkEndpointUpToDate(c)) == true
       } catch (e) {
         dbg.error("trying to update ep", e)
       }

@@ -4,32 +4,34 @@ import * as dbg from '../dbg'
 export async function postJSON(hostname:string,path:string,port:number,odata:any){
     
   const data = JSON.stringify(odata)
-    const options = {
-        hostname,
-        port,
-        path,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': data.length
-        }
-      }
-      
-      const req = http.request(options, res => {
-        // dbg.log(`statusCode: ${res.statusCode}`)
-      
-        res.on('data', d => {
-        //   process.stdout.write(d)
-        dbg.log(">>>>> http post data",d)
-        })
-      })
-      
-      req.on('error', error => {
-        dbg.error(">>>>> http post error",error)
-      })
-      
-      await req.write(data)
-      await req.end()
+  const options = {
+    hostname,
+    port,
+    path,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': data.length
+    }
+  }
+
+  const req = http.request(options, res => {
+    // dbg.log(`statusCode: ${res.statusCode}`)
+
+    res.on('data', d => {
+      //   process.stdout.write(d)
+      dbg.log(">>>>> http post data", d)
+    })
+  })
+
+  req.on('error', error => {
+    dbg.error(">>>>> http post error", error)
+    throw error
+  })
+
+  await req.write(data)
+  await req.end()
+
 }
 
 

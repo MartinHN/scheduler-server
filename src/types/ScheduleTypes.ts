@@ -107,6 +107,7 @@ export interface AgendaException {
 
 export interface Agenda {
   name: string
+  loopTimeSec: number
   defaultWeek: WeekHours
   agendaExceptionList: AgendaException[]
 }
@@ -123,7 +124,7 @@ export function createAgendaException(name: string): AgendaException {
 }
 
 export function createDefaultAgenda(): Agenda {
-  return { name: 'default', defaultWeek: createDefaultWeekHour(), agendaExceptionList: [] }
+  return { name: 'default', loopTimeSec: 0, defaultWeek: createDefaultWeekHour(), agendaExceptionList: [] }
 }
 
 // /////////////
@@ -159,7 +160,9 @@ export function isActiveForDayType(d: Date, day: DayType): boolean {
   return !!validRange
 }
 
-export function isAgendaActiveForDate(d: Date, ag: Agenda): boolean {
+
+export function getActiveDayForDateInAgenda(d: Date, ag: Agenda): DayType {
+
   const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
   const ex = (ag.agendaExceptionList || []).find(e => {
     const startD = dateDayFromString(e.dates.start)
@@ -167,12 +170,29 @@ export function isAgendaActiveForDate(d: Date, ag: Agenda): boolean {
     return (actDay >= startD && actDay <= endD)
   })
   if (ex) {
-    dbg.log('applying exception Period', ex.dayValue)
-    return isActiveForDayType(d, ex.dayValue)
+    dbg.log('getting for exception Period', ex.dayValue)
+    return ex.dayValue;
   }
   const dow = (actDay.getDay() + 6) % 7
   const dn = dayNames[dow]
-  const dt = ag.defaultWeek.exceptions.find(e => e.dayName === dn) || ag.defaultWeek.defaultDay as DayType
+  return ag.defaultWeek.exceptions.find(e => e.dayName === dn) || ag.defaultWeek.defaultDay as DayType
+}
+
+export function isAgendaActiveForDate(d: Date, ag: Agenda): boolean {
+  const dt = getActiveDayForDateInAgenda(d, ag);
+  // const actDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)
+  // const ex = (ag.agendaExceptionList || []).find(e => {
+  //   const startD = dateDayFromString(e.dates.start)
+  //   const endD = dateDayFromString(e.dates.end)
+  //   return (actDay >= startD && actDay <= endD)
+  // })
+  // if (ex) {
+  //   dbg.log('applying exception Period', ex.dayValue)
+  //   return isActiveForDayType(d, ex.dayValue)
+  // }
+  // const dow = (actDay.getDay() + 6) % 7
+  // const dn = dayNames[dow]
+  // const dt = ag.defaultWeek.exceptions.find(e => e.dayName === dn) || ag.defaultWeek.defaultDay as DayType
   return isActiveForDayType(d, dt)
 }
 

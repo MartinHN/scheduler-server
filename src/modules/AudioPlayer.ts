@@ -22,6 +22,7 @@ class AudioPlayer {
 
     sendOSC(address: string, ...args: any) {
         const msg = { address, args: args === undefined ? [] : args }
+        dbg.log('[Audio] sending msg', JSON.stringify(msg));
         this.udpPort.send(msg, audioPlayerIp, audioPlayerPort);
     }
 
@@ -37,7 +38,6 @@ class AudioPlayer {
 
     playOnce() {
         this.sendOSC("/play")
-
     }
 
 }

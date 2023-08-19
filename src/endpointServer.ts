@@ -17,7 +17,7 @@ import https from 'https'
 import http from 'http'
 import * as sys from './sysUtils'
 import { willBeRunningForDate, getAgenda, startSchedule, getAgendaShouldActivate } from './schedule'
-
+import { Looper } from './lib/Looper'
 
 import { isPi, isOSX } from './platformUtil'
 import { getIpOfInterface } from './lib/networkUtils'
@@ -213,13 +213,32 @@ function initModules() {
 }
 let isActive = false
 
-function activate(active: boolean) {
-  isActive = active
-  audioPlayer.activate(active);
+let looper = new Looper()
+looper.onLoopBegin = () => { sendStartOrStopMessage(true, true) }
+
+function sendStartOrStopMessage(active, playOnce = false) {
+  if (playOnce && active) {
+    audioPlayer.playOnce()
+  }
+  else
+    audioPlayer.activate(active);
   relay.activate(active)
   oscModule.activate(active);
   oscModule2.activate(active);
   vermuthModule.activate(active);
+}
+
+
+function activate(active: boolean, forceNow = false) {
+
+  isActive = active
+  if (looper.loopTimeMs > 0) {
+    looper.setIsPlaying(isActive, isActive && forceNow);
+    if (!isActive) { sendStartOrStopMessage(false) }
+  }
+  else {
+    sendStartOrStopMessage(isActive)
+  }
 }
 
 /// gpio
@@ -263,9 +282,11 @@ if (isPi) {
 import { OSCServerModule } from './lib/OSCServerModule'
 import ConfFileWatcher from './ConfFileWatcher';
 import { debug } from 'console';
+import { getActiveDayForDateInAgenda, hourMinutesToString, hourStringToMinutes } from './types/ScheduleTypes';
 
 
 
+let lastActivateMsgTime = 0
 /// describe basic functionality of endpoints
 function handleMsg(msg, time, info: { address: string, port: number }) {
   if (msg.address !== "/rssi") dbg.log("endpoint rcvd", info.address, info.port, msg.address)
@@ -273,8 +294,15 @@ function handleMsg(msg, time, info: { address: string, port: number }) {
     epOSC.send("/rssi", [sys.getRSSI()], info.address, info.port)
   }
   else if ((msg.address === "/activate")) {
-    if (msg.args.length > 0)
-      activate(msg.args[0] ? true : false)
+    if (msg.args.length > 0) {
+      const now = new Date().getTime();
+      const shouldActivate = msg.args[0] ? true : false;
+      const isRedundant = (shouldActivate == isActive) || (Math.abs(now - lastActivateMsgTime) < 1000)
+      if (shouldActivate == isActive) lastActivateMsgTime = now
+      else lastActivateMsgTime = -1
+      if (!isRedundant)
+        activate(shouldActivate, true)
+    }
     else
       epOSC.send("/activate", [isActive ? 1 : 0], info.address, info.port)
   }
@@ -293,7 +321,10 @@ function handleMsg(msg, time, info: { address: string, port: number }) {
       if (!isAgendaDisabled) {
         const shouldAct = !!getAgendaShouldActivate();
         if (shouldAct !== isActive) {
-          activate(shouldAct)
+          // mimic exact same timing than when agenda started normaly
+          adaptLooperStateFromAgendaEvent();
+          looper.offsetWithGlobalTimeMs = 0;
+          activate(shouldAct, false)
         }
       }
     }
@@ -371,8 +402,9 @@ const epOSC = new OSCServerModule((msg, time, info) => {
 ///////////////////////
 // Entry point
 
-const delayBeforeFirstStartSchedule = 5000;
+
 let isAgendaDisabled = false;
+
 export function startEndpointServer(epConf: { endpointName?: string, endpointPort?: number }) {
   const hasCustomPort = !!epConf.endpointPort;
   const epPort = hasCustomPort ? epConf.endpointPort : conf.endpointPort;
@@ -453,12 +485,39 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
       return;
     }
     dbg.log(">>>>> scheduling State is", state ? "on" : "off")
+    adaptLooperStateFromAgendaEvent();
     activate(!!state)
 
   })
   return server
 }
 
+function adaptLooperStateFromAgendaEvent() {
+  const now = new Date()
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const currentAgenda = getAgenda()
+  const curDayType = getActiveDayForDateInAgenda(new Date(), currentAgenda)
+  let closestPositiveDiff = undefined
+  let refPointMinutes = undefined
+  curDayType?.hourRangeList.map(e => {
+    const startMinutes = hourStringToMinutes(e.start)
+    if (startMinutes === undefined) return
+    const diffWithStart = nowMinutes - startMinutes
+    if (diffWithStart < 0) return
+    if ((closestPositiveDiff === undefined) || diffWithStart < closestPositiveDiff) {
+      closestPositiveDiff = diffWithStart
+      refPointMinutes = startMinutes
+    }
+  })
+  if (refPointMinutes === undefined) {
+    console.error("could not find ref point for ", nowMinutes, curDayType)
+  }
+  else {
+    console.log("applying ref point", hourMinutesToString(refPointMinutes))
+  }
+  looper.referenceTimeMs = refPointMinutes !== undefined ? refPointMinutes * 60 * 1000 : 0
+  looper.loopTimeMs = (currentAgenda.loopTimeSec >>> 0) * 1000
+}
 
 export function cleanShutdown() {
 

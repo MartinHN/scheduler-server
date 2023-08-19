@@ -8,6 +8,7 @@
     "watch": "nodemon  -e ts --exec \"npm run build && npm run run -- \"",
     "watch:cli": "npm run watch -- -c",
     "watch:srv": "npm run watch -- --srv ",
+    "watch:both": "npm run watch -- --srv -c",
     "start": "node --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "debug": "node --inspect --experimental-modules --es-module-specifier-resolution=node  --loader ts-node/esm ./src/index.ts",
     "build": "tsc",
