@@ -28,11 +28,15 @@ export default class ConfFileWatcher {
     async loadConf(hint = "change") {
         dbg.log('loadinf conf', this.confFile);
         let data;
+        let content;
         try {
-            data = JSON.parse(fs.readFileSync(this.confFile).toString())
+            if (!fs.existsSync(this.confFile))
+                throw new Error("no file for conf")
+            content = fs.readFileSync(this.confFile).toString()
+            data = JSON.parse(content)
         }
         catch (e) {
-            dbg.error("error opening conf set default instead\n", this.confFile, e)
+            dbg.error("error opening conf set default instead\n", this.confFile, content, e)
             data = this.defaultConf
         }
         try {

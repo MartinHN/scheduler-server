@@ -40,7 +40,7 @@ export function startServer(cb) {
     dbg.log(`Global Server listening on port ${conf.serverPort}!`);
     if (cb) { cb(conf); }
   });
-  return server
+  return { server, expressApp: app }
 }
 
 const viewerHTMLBasePath = appPaths.getConf().viewerHTMLBasePath
@@ -214,11 +214,8 @@ app.post('/state', async (req, res) => {
 })
 
 
+LoraModule.initHttpEndpoints(app)
 
-//////////////
-// lora
-
-const loraMod = new LoraModule(app)
 
 
 /// serve Vue

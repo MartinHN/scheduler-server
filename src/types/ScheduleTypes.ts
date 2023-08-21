@@ -5,6 +5,23 @@ import * as dbg from '../dbg'
 /// ////////////////
 // conversion helpers
 
+export function dateToStr(dd: Date): string {
+  const d = new Date(dd)
+  let month = '' + (d.getMonth() + 1)
+  const year = '' + d.getFullYear()
+  let day = '' + d.getDate()
+  let hours = '' + d.getHours()
+  let min = '' + d.getMinutes()
+  let sec = '' + d.getSeconds()
+  if (month.length < 2) { month = '0' + month }
+  if (day.length < 2) { day = '0' + day }
+  if (hours.length < 2) { hours = '0' + hours }
+  if (min.length < 2) { min = '0' + min }
+  if (sec.length < 2) { sec = '0' + sec }
+
+  return day + '/' + month + '/' + year + ' ' + hours + ':' + min + ':' + sec
+}
+
 function twoDig(n: number) {
   return ('0' + n).slice(-2)
 }

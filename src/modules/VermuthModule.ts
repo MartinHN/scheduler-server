@@ -38,7 +38,7 @@ class VermuthModule {
 
     sendMessage(msg: { address: string, args: any }) {
         try {
-            dbg.log('[Vermuth] sending msg', JSON.stringify(msg));
+            // dbg.log('[Vermuth] sending msg', JSON.stringify(msg));
             this.udpPort.send(msg);
         }
         catch (e) {

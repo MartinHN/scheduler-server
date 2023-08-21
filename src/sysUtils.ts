@@ -39,9 +39,13 @@ export function getMac() {
         if (curMac === undefined || !curMac.mac) continue;
         const isValidMac = curMac.mac.split(":").find(e => e != "00") !== undefined
         if (!isValidMac) continue;
-        // dbg.warn(">>> mac",k,v,curMac,isValidMac)
+        dbg.warn(">>> mac", k, v, curMac, isValidMac)
         if (k.startsWith("e") || firstMac === undefined)
-            firstMac = curMac
+        {
+            firstMac = curMac;
+            if (k === "en0")
+                break;
+        }
     }
 
     return (firstMac && firstMac.mac) || "unknown"

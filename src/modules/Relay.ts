@@ -16,7 +16,7 @@ class RelayWr {
             this.pimpl.digitalWrite(b ? 1 : 0)
         }
         else {
-            dbg.log('Relay should be', b)
+            // dbg.log('Relay should be', b)
         }
     }
 }

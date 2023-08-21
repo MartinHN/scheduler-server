@@ -1,6 +1,7 @@
 import { startServer } from './server'
 import { listenDNS, advertiseServerDNS, PiConInfo, setDNSActive } from './dns'
 import { startWS } from './wsServer'
+import LoraModule from './modules/LoraModule';
 import * as appPaths from './filePaths'
 import fs from 'fs'
 import http from 'http'
@@ -11,6 +12,7 @@ import * as dbg from './dbg'
 import jdiff from 'json-diff';
 import chokidar from 'chokidar';
 import _ from 'lodash'
+import { dateToStr } from './types';
 
 
 let isInaugurationMode = false;
@@ -29,9 +31,28 @@ export function cleanShutdown() {
 
 export function startMainServer(serverReadyCb) {
   advertiseServerDNS()
-  const server = startServer(serverReadyCb)
+  const { server, expressApp } = startServer(serverReadyCb)
   // to from web page
   const wsServer = startWS(server)
+
+  //////////////
+  // lora
+  LoraModule.onTimeSync = (d: Date) => {
+    const strToSend = dateToStr(d)
+    dbg.log("[main] got lora sync message for date", strToSend, d.toLocaleString())
+    for (const pi of getKnownPis())
+      sendToPi(pi, "/setTimeStr", [strToSend])
+  }
+
+  LoraModule.onActivate = (b: boolean) => {
+    dbg.log("got lora activate message ", b ? "1" : "0")
+    setInaugurationMode(b)
+  }
+
+  LoraModule.onTestRoundTrip = (n: number) => {
+    console.log("got round trip of", n)
+    wsServer.broadcast({ type: "lastLoraRoundTrip", data: n })
+  }
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
   oscSender.connect("0.0.0.0", 0)
@@ -146,6 +167,16 @@ export function startMainServer(serverReadyCb) {
         setDNSActive(!!args.value)
       }
 
+    }
+    else if (addr == "lora") {
+      if (args && (args.type === "req")) {
+        if (args.value === "loraIsSendingTest") {
+          wsServer.sendTo(ws, { type: "loraIsSendingTest", data: LoraModule.isSendingTest })
+        }
+      }
+      else if (args.type === "loraIsSendingTest") {
+        LoraModule.isSendingTest = !!args.value
+      }
     }
     else {
       dbg.error('[wsServer] unknown msg', msg);

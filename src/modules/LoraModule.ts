@@ -6,31 +6,49 @@ import * as sys from '../sysUtils'
 import { isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { exec, execSync } from 'child_process';
-import { LoraState, DefaultLoraState, validateLoraState } from '../types/LoraState';
+import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateFromBuffer } from '../types/LoraState';
 import unix from "unix-dgram"
 import fs from 'fs'
 import * as lora from './LoraModuleHelpers'
+import * as Express from 'express'
 
 
-export default class LoraModule {
+
+class LoraModule extends lora.LoraSockIface {
     confWatcher: ConfFileWatcher;
     public state: LoraState;
+    public isSendingTest = false;
     public confFile = appPaths.getConf().baseDir + "/lora.json"
+    private clockSyncTimeout
+    private lastClockSentTime: number
 
-    private csock;
+    public onTimeSync = (d: Date) => {
 
-    constructor(httpApp: Express.Application) {
-        this.initHttpEndpoints(httpApp)
+    }
+    public onActivate = (b: boolean) => {
+
+    }
+    public onTestRoundTrip = (n: number) => {
+
+    }
+
+
+    constructor() {
+        super()
         this.confWatcher = new ConfFileWatcher(this.confFile, obj => { this.parseConf(obj) }, new DefaultLoraState());
     }
 
     parseConf(o: LoraState) {
         if (!validateLoraState(o, true))
-            console.error("received incomplete lora state", o)
+            dbg.error("received incomplete lora state", o)
         this.state = o;
         this.setServiceStartsOnBoot(!!o.isActive);
+        if (this.clockSyncTimeout)
+            clearTimeout(this.clockSyncTimeout)
         if (!!o.isActive) {
             this.setHexConf(lora.buildHexConfFromState(this.state))
+            if (!!o.isMasterClock)
+                this.scheduleNextClockSync()
         }
         else {
             this.setServiceRunning(false)
@@ -39,66 +57,87 @@ export default class LoraModule {
     }
 
 
-    setHexConf(hex) {
-        console.log("should set e32 bin conf to " + hex)
-        if (hex.length != lora.defaultHexConf.length)
-            throw new Error("invalid lora config")
-
-        this.setServiceRunning(false);
-        lora.execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
-        if (this.state.isActive)
-            this.setServiceRunning(true);
-
-    }
-
-    sendBufToLora(buf: Buffer) {
-        if (!this.csock) {
-            throw Error("[loraSock] not created")
+    // MasterClock
+    scheduleNextClockSync() {
+        const nextTimeout = this.state.clockUpdateIntervalSec >>> 0
+        // dbg.log("[lora] master Clock scheduling next", nextTimeout)
+        if (nextTimeout < 5) {
+            dbg.error("[lora] invalid timeout", this.state.clockUpdateIntervalSec)
+            return
         }
-        this.csock.sendBuf(buf)
+        if (this.clockSyncTimeout)
+            clearTimeout(this.clockSyncTimeout)
+        this.clockSyncTimeout = setTimeout(this.sendOneClockSync.bind(this), nextTimeout * 1000)
     }
 
-    closeSock() {
-        if (this.csock) {
-            this.csock.close()
-            this.csock = undefined
+    sendOneClockSync() {
+        if (!this.state.isActive || !this.state.isMasterClock) {
+            dbg.error("[lora] should not send clock stopping...");
+            clearTimeout(this.clockSyncTimeout)
+            return
         }
-    }
-
-    setServiceStartsOnBoot(b: boolean) {
-        uConf.setRW(true)
-        lora.sysctlCmd((b ? 'enable' : 'disable '))
-        uConf.setRW(false)
-    }
-
-    setServiceRunning(b: boolean) {
-        this.closeSock()
-        lora.sysctlCmd(b ? 'start' : 'stop')
-        if (b) {
-            console.log('[loraSock] rebind sock ');
-            this.csock = lora.createSock(this.processLoraMsg.bind(this))
+        // send
+        dbg.log("[lora] masterClk sending message Tick")
+        const syncPoint = new Date();
+        const syncMsg = createBufferMessageType(this.isSendingTest ? MessageType.TST : MessageType.SYNC, dateToBuffer(syncPoint))
+        this.lastClockSentTime = new Date().getTime()
+        this.sendBufToLora(syncMsg)
+        if (!isPi) // local tests
+        {
+            if (this.isSendingTest) setTimeout(() => { this.processLoraMsg(Buffer.from([MessageType.ACK])) }, 1000);
+            else {
+                this.processLoraMsg(syncMsg)
+                console.log("should have been", syncPoint.toLocaleString())
+            }
         }
+        // schedule next
+        this.scheduleNextClockSync()
     }
+
+
+    // // triggerAckCb: Function;
+    // testMsgSendTime: Date
+    // sendTestMessage(b: Buffer, timeOut: number) {
+    //     const tstMsg = createBufferMessageType(MessageType.TST, b)
+    //     this.testMsgSendTime = new Date()
+    //     this.sendBufToLora(tstMsg)
+    //     // return new Promise<void>((resolve, reject) => {
+    //     //     const to = setTimeout(() => { this.triggerAckCb = undefined; reject() }, timeOut);
+    //     //     this.triggerAckCb = () => { clearTimeout(to); resolve() };
+    //     // })
+    // }
+
 
     processLoraMsg(buf: Buffer) {
-        console.log("new lora msg", buf.toString());
-        // // send ack
-        console.log("[loraSock] sendAck")
-        this.sendBufToLora(buf)
+        dbg.log("new lora msg", buf.toString());
+        if (buf.length === 0) { dbg.error("[lora] rcvd empty msg"); return }
+        const headByte = buf[0]
+        if (headByte == MessageType.SYNC) {
+            const d = dateFromBuffer(buf, 1)
+            this.onTimeSync(d);
+        }
+        else if (headByte == MessageType.TST) {
+            // dbg.log("[lora] sendAck for tst")
+            this.sendBufToLora(Buffer.from([MessageType.ACK]))
+        }
+        else if (headByte == MessageType.ACK) {
+            dbg.log("[lora] got ACK")
+            if (this.isSendingTest)
+                this.onTestRoundTrip(new Date().getTime() - this.lastClockSentTime)
+
+
+            // if (this.triggerAckCb) this.triggerAckCb();
+        }
     }
 
-    isServiceRunning() {
-        if (!isPi) return this.state.isActive
-        return lora.execOnPiOnly(`systemctl status e32.service --no-pager; echo $?`).toString() === "0";
-    }
+// HTTP
 
-
-    initHttpEndpoints(app) {
+    initHttpEndpoints(app: Express.Application) {
         app.post('/lora/state', async (req, res) => {
             const s = req.body;
-            console.log("got lora state", JSON.stringify(s))
+            dbg.log("got lora state", JSON.stringify(s))
             if (!validateLoraState(s, true))
-                console.error("html sent invalid lora state", req.body)
+                dbg.error("html sent invalid lora state", req.body)
 
             Object.assign(this.state, s)
             // should trigger parseConf()?
@@ -123,3 +162,6 @@ export default class LoraModule {
 }
 
 
+
+const l = new LoraModule()
+export default l;

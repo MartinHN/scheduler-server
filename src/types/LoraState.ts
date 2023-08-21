@@ -2,6 +2,7 @@
 export interface LoraState {
   isActive: boolean
   isMasterClock: boolean
+  clockUpdateIntervalSec: number
   uuid: number
   channel: number
   speed: number
@@ -11,6 +12,7 @@ export interface LoraState {
 export class DefaultLoraState implements LoraState {
   public isActive = false;
   public isMasterClock = false;
+  public clockUpdateIntervalSec = 60;
   public uuid = 0;
   public channel = defaultLoraChan;
   public speed = defaultAirDataRateIdx;
@@ -26,11 +28,17 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
 
     return false
   }
-  for (const n of ['isActive', 'isMasterClock', 'uuid', 'channel', 'speed', 'fec']) {
+  for (const n of ['isActive', 'isMasterClock', 'uuid', 'channel', 'speed', 'fec', 'clockUpdateIntervalSec']) {
     // console.log("check defined", n, s[n])
     if (s[n] === undefined)
       return validErr(n)
   }
+
+  s.clockUpdateIntervalSec = parseInt('' + s.clockUpdateIntervalSec)
+  if (s.clockUpdateIntervalSec < 5)
+    return validErr('clockUpdateIntervalSec')
+
+
 
   s.uuid = parseInt('' + s.uuid)
   if ((s.uuid < 0) || (s.uuid >= loraUuids.length))
@@ -83,4 +91,64 @@ export const defaultAirDataRateIdx = 3
 // uuids
 
 export const loraUuids = new Array<number>(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+
+
+
+//////////////////////
+// messages
+
+export enum MessageType { SYNC = 1, ACK, TST } // should be less than 15  (4octets) to allow  next 4 octets to be filled by destId (query messages)
+
+
+
+// const numBytesForSeconds = 3
+// const numBytesForday = 2
+import { Buffer } from 'buffer';
+
+function getStartOfYear(d: Date) {
+  const ref = new Date(d)
+  ref.setMonth(0, 1)
+  ref.setHours(0, 0, 0, 0)
+  return ref;
+}
+export function dateToBuffer(d: Date) {
+  // let b = new ArrayBuffer(4);
+  // new DataView(b).setUint32(0, n);
+  // return Buffer.from(new Uint8Array(b));
+  const toSend = new Date(d)
+  const ref = getStartOfYear(toSend)
+  const secSinceStartYear = Math.floor((toSend.getTime() - ref.getTime()) / 1000);
+
+  const buf = Buffer.allocUnsafe(8);
+  buf.writeBigUInt64BE(BigInt(secSinceStartYear), 0);
+
+  return buf
+}
+
+export function dateFromBuffer(b: Buffer, offset = 0): Date {
+  const secSinceStartYear = b.readBigUInt64BE(offset)
+  const refMillis = getStartOfYear(new Date()).getTime()
+  const d = new Date(Number(secSinceStartYear) * 1000 + refMillis)
+
+  return d
+}
+
+const testDate = new Date()
+testDate.setMilliseconds(0)
+const expectEqual = dateFromBuffer(dateToBuffer(testDate))
+if (testDate.getTime() != expectEqual.getTime()) {
+  console.error(expectEqual)
+  console.error(testDate)
+  console.error(testDate.getTime() - expectEqual.getTime())
+  throw new Error("buffer are bugged")
+}
+
+export function createBufferMessageType(msgTypeByte: MessageType, payload: Buffer) {
+  return Buffer.concat([Buffer.from([msgTypeByte]), payload])
+}
+
+
+export function getTypeOfMessage(b: Buffer): MessageType | undefined {
+  return b[0]
+}
 

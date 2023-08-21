@@ -51,6 +51,18 @@ export function createSock(onMessage) {
 
 
     });
+    if (!isPi) {
+        sock.bind = () => {
+            console.log("[loraOSX] would bind sock");
+            sock.isRegisteredToe32 = true
+        }
+        sock.send = (b) => {
+            console.log("[loraOSX] would send", b)
+        }
+        sock.close = () => {
+            console.log("[loraOSX] would close")
+        }
+    }
     sock.on('error', (e) => {
         console.error("[loraSock] !!!! sock error", e)
         sock.isRegisteredToe32 = false
@@ -171,3 +183,62 @@ function testHexConf() {
     }
 }
 testHexConf();
+
+
+
+
+
+export class LoraSockIface {
+    // helper to manage socket lifetime and e32.service
+    protected csock;
+    // TODO, we could send hex to /run/e32.control and not restart the service
+    setHexConf(hex) {
+        dbg.log("should set e32 bin conf to " + hex)
+        if (hex.length != defaultHexConf.length)
+            throw new Error("invalid lora config")
+
+
+        this.setServiceRunning(false);
+        execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
+        this.setServiceRunning(true);
+
+    }
+
+    processLoraMsg(buf: Buffer) {
+        dbg.error("should never be called")
+    }
+
+    sendBufToLora(buf: Buffer) {
+        if (!this.csock) {
+            throw Error("[lora] not created")
+        }
+        this.csock.sendBuf(buf)
+    }
+
+    closeSock() {
+        if (this.csock) {
+            this.csock.close()
+            this.csock = undefined
+        }
+    }
+
+    setServiceStartsOnBoot(b: boolean) {
+        uConf.setRW(true)
+        sysctlCmd((b ? 'enable' : 'disable '))
+        uConf.setRW(false)
+    }
+
+    setServiceRunning(b: boolean) {
+        this.closeSock()
+        sysctlCmd(b ? 'start' : 'stop')
+        if (b) {
+            dbg.log('[lora] rebind sock ');
+            this.csock = createSock(this.processLoraMsg.bind(this))
+        }
+    }
+
+    isServiceRunning() {
+        if (!isPi) return true
+        return execOnPiOnly(`systemctl status e32.service --no-pager; echo $?`).toString() === "0";
+    }
+}
