@@ -119,7 +119,7 @@ class LoraModule extends lora.LoraSockIface {
         }
         else if (headByte == MessageType.TST) {
             dbg.log("[lora] sendAck for tst")
-            this.sendBufToLora(Buffer.from([MessageType.ACK]))
+            this.sendBufToLora(Buffer.from([MessageType.ACK, this.state.uuid]))
         }
         else if (headByte == MessageType.ACK) {
             dbg.log("[lora] got ACK")
