@@ -405,7 +405,19 @@ const epOSC = new OSCServerModule((msg, time, info) => {
 
 let isAgendaDisabled = false;
 
+function checkHostName() {
+  if (fs.existsSync("/boot/hostname")) {
+    const cur = sys.getHostName()
+    const des = fs.readFileSync("/boot/hostname").toString().trim();
+    if (cur != des) {
+      dbg.warn(" should change hostName to ", des)
+      sys.setHostName(des)
+    }
+  }
+}
+
 export function startEndpointServer(epConf: { endpointName?: string, endpointPort?: number }) {
+  checkHostName();
   const hasCustomPort = !!epConf.endpointPort;
   const epPort = hasCustomPort ? epConf.endpointPort : conf.endpointPort;
   initModules();
