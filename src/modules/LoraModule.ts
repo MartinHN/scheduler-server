@@ -6,7 +6,7 @@ import * as sys from '../sysUtils'
 import { isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { exec, execSync } from 'child_process';
-import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateFromBuffer } from '../types/LoraState';
+import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateFromBuffer, getTypeOfMessage } from '../types/LoraState';
 import unix from "unix-dgram"
 import fs from 'fs'
 import * as lora from './LoraModuleHelpers'
@@ -111,13 +111,14 @@ class LoraModule extends lora.LoraSockIface {
     processLoraMsg(buf: Buffer) {
         dbg.log("new lora msg", buf.toString());
         if (buf.length === 0) { dbg.error("[lora] rcvd empty msg"); return }
+        dbg.log("lora type", getTypeOfMessage(buf))
         const headByte = buf[0]
         if (headByte == MessageType.SYNC) {
             const d = dateFromBuffer(buf, 1)
             this.onTimeSync(d);
         }
         else if (headByte == MessageType.TST) {
-            // dbg.log("[lora] sendAck for tst")
+            dbg.log("[lora] sendAck for tst")
             this.sendBufToLora(Buffer.from([MessageType.ACK]))
         }
         else if (headByte == MessageType.ACK) {
