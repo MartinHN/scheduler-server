@@ -26,6 +26,8 @@ export function setHostName(newhost: string) {
     uConf.setRW(true);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hosts`);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hostname`);
+    if (fs.existsSync("/boot/hostname"))
+        execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /boot/hostname`);
     uConf.setRW(false);
 }
 
