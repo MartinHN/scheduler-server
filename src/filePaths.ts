@@ -19,6 +19,7 @@ export function getConf(ignoreInvalid = false) {
         baseDir: baseAppPath + 'public/data',
         groupFile: baseAppPath + 'public/data/groups.json',
         knownDevicesFile: baseAppPath + 'public/data/knownDevices.json',
+        knownLoraDevicesFile: baseAppPath + 'public/data/knownLoraDevices.json',
         agendasFolder: baseAppPath + 'public/data/agendas/',
     }
 }
@@ -72,6 +73,8 @@ function initFolders() {
             fs.writeFileSync(conf.groupFile, '{}', { encoding: 'utf-8' })
         if (!fs.existsSync(conf.knownDevicesFile))
             fs.writeFileSync(conf.knownDevicesFile, '{}', { encoding: 'utf-8' })
+        if (!fs.existsSync(conf.knownLoraDevicesFile))
+            fs.writeFileSync(conf.knownLoraDevicesFile, '{"list":[]}', { encoding: 'utf-8' })
         hasValidFolders = true;
     }
     catch (e) {

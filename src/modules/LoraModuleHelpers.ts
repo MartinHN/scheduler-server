@@ -11,10 +11,10 @@ import unix from "unix-dgram"
 import fs from 'fs'
 
 export function execOnPiOnly(cmd) {
-    console.log('[lora] cmd will run : ' + cmd)
+    dbg.log('[lora] cmd will run : ' + cmd)
     if (isPi) {
         const res = execSync(cmd).toString();
-        console.log("[lora] cmd resp", res)
+        dbg.log("[lora] cmd resp", res)
         return res
     }
     else
@@ -34,43 +34,41 @@ const dataSock = "/run/e32.data"
 
 
 export function createSock(onMessage) {
-    // if (sock) { console.log("[loraSock]  force sock close"); sock.close(); sock = undefined }
+    // if (sock) { dbg.log("[loraSock]  force sock close"); sock.close(); sock = undefined }
 
     let sock = {} as any;
     sock = unix.createSocket('unix_dgram', (buf) => {
         if (!sock.isRegisteredToe32) {
-            console.log('[loraSock] registered ' + buf);
+            dbg.log('[loraSock] registered ' + buf);
             sock.isRegisteredToe32 = true;
             return
         }
-        if (buf.length == 1 && buf[0] == 0) {
-            // console.log('[loraSock] successfully sent message ');
+        if (buf.length == 1) {
+            if (buf[0] != 0)
+                dbg.log('[loraSock] got error', buf[0]);
             return
         }
         onMessage(buf)
-
-
     });
     if (!isPi) {
         sock.bind = () => {
-            console.log("[loraOSX] would bind sock");
+            dbg.log("[loraOSX] would bind sock");
             sock.isRegisteredToe32 = true
         }
         sock.send = (b) => {
-            console.log("[loraOSX] would send", b)
+            dbg.log("[loraOSX] would send", b)
         }
         sock.close = () => {
-            console.log("[loraOSX] would close")
+            dbg.log("[loraOSX] would close")
         }
     }
     sock.on('error', (e) => {
-        console.error("[loraSock] !!!! sock error", e)
+        dbg.error("[loraSock] !!!! sock error", e)
         sock.isRegisteredToe32 = false
-
     })
 
     sock.on('listening', () => {
-        console.log("[loraSock]  sock connected")
+        dbg.log("[loraSock]  sock connected")
         // register to e32
         const buf = Buffer.from('')
         sock.send(buf, 0, buf.length, dataSock);
@@ -89,11 +87,17 @@ export function createSock(onMessage) {
     }
     const oriClose = sock.close
     sock.close = () => {
-        console.log("[loraSock]  closing sock", sock.isRegisteredToe32)
-        if (sock.isRegisteredToe32)
-            oriClose();
+        dbg.log("[loraSock]  closing sock", sock.isRegisteredToe32)
+        if (sock.isRegisteredToe32) {
+            try {
+                oriClose();
+            }
+            catch (e) {
+                dbg.error("[loraSock] error closing socket", e)
+            }
+        }
         else
-            console.error("[loraSock] can't close non listening sock")
+            dbg.error("[loraSock] can't close non listening sock")
         sock.isRegisteredToe32 = false;
     }
     return sock;
@@ -153,23 +157,23 @@ function bin2dec(bin) {
 function setBit(buf, byte, bit, value) {
     const c = !!value ? "1" : "0"
     const v = buf[byte];
-    // console.log(v)
+    // dbg.log(v)
     let o = dec2bin(buf[byte]);
-    // console.log(o)
+    // dbg.log(o)
     const lsb = 7 - bit
     o = o.substring(0, lsb) + c + o.substring(lsb + 1)
-    // console.log(o)
+    // dbg.log(o)
     const nV = bin2dec(o)
-    // console.log("was ", v.toString(16), "is", nV.toString(16))
+    // dbg.log("was ", v.toString(16), "is", nV.toString(16))
     buf[byte] = nV
     return buf;
 }
 
 function setDecBits(buf, byte, from, len, value) {
     const bValue = dec2bin(value, len)
-    // console.log(bValue)
+    // dbg.log(bValue)
     for (let i = 0; i < len; i++) {
-        // console.log(i,)
+        // dbg.log(i,)
         buf = setBit(buf, byte, from + i, bValue.charAt(len - 1 - i) == "1")
     }
     return buf
@@ -190,18 +194,22 @@ testHexConf();
 
 export class LoraSockIface {
     // helper to manage socket lifetime and e32.service
-    protected csock;
+    protected csock = undefined;
     // TODO, we could send hex to /run/e32.control and not restart the service
-    setHexConf(hex) {
-        dbg.log("should set e32 bin conf to " + hex)
-        if (hex.length != defaultHexConf.length)
+    setHexConf(hexStr) {
+        dbg.log("should set e32 bin conf to " + hexStr)
+        if (hexStr.length != defaultHexConf.length)
             throw new Error("invalid lora config")
 
 
-        this.setServiceRunning(false);
-        execOnPiOnly(`e32 -w ${hex}  --in-file /dev/null`)
-        this.setServiceRunning(true);
+        // this.setServiceRunning(false);
+        // execOnPiOnly(`e32 -w ${hexStr}  --in-file /dev/null`)
+        // this.setServiceRunning(true);
 
+        if (!this.csock)
+            throw new Error("can not config on unconnected sock")
+        const buf = hexStrToBuf(hexStr)
+        this.csock.send(buf, 0, buf.length, "/run/e32.control");
     }
 
     processLoraMsg(buf: Buffer) {
@@ -229,11 +237,16 @@ export class LoraSockIface {
     }
 
     setServiceRunning(b: boolean) {
-        this.closeSock()
-        sysctlCmd(b ? 'start' : 'stop')
+        // sysctlCmd(b ? 'start' : 'stop')
+        if (b == !!this.csock) return
+
         if (b) {
             dbg.log('[lora] rebind sock ');
             this.csock = createSock(this.processLoraMsg.bind(this))
+        }
+        else {
+            this.closeSock()
+
         }
     }
 

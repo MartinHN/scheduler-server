@@ -9,10 +9,12 @@ import { OSCServerModule } from './lib/OSCServerModule'
 import { DeviceDic, Groups, newEmptyDevice } from './types/DeviceTypes'
 import { postJSON } from './lib/HTTPHelpers'
 import * as dbg from './dbg'
+import * as sys from "./sysUtils"
 import jdiff from 'json-diff';
 import chokidar from 'chokidar';
 import _ from 'lodash'
 import { dateToStr } from './types';
+import { LoraDeviceInstance, LoraDeviceFile } from './types/LoraDevice';
 
 
 let isInaugurationMode = false;
@@ -24,6 +26,7 @@ function getKnownPis() {
   const pis = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
   return Object.values(pis);
 }
+
 
 export function cleanShutdown() {
   // do nothing 
@@ -49,9 +52,9 @@ export function startMainServer(serverReadyCb) {
     setInaugurationMode(b)
   }
 
-  LoraModule.onTestRoundTrip = (n: number) => {
-    console.log("got round trip of", n)
-    wsServer.broadcast({ type: "lastLoraRoundTrip", data: n })
+  LoraModule.onPong = (time: number, uuid: number, data: number) => {
+    console.log("got pong, round trip of", time, uuid, data)
+    wsServer.broadcast({ type: "loraPong", data: { time, uuid, data } })
   }
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
@@ -177,6 +180,14 @@ export function startMainServer(serverReadyCb) {
       else if (args.type === "loraIsSendingTest") {
         LoraModule.isSendingTest = !!args.value
       }
+      else if (args.type === "activate") {
+        LoraModule.sendActivate(!!args.value?.isActive, LoraDeviceInstance.getUuid(args.value.device))
+      }
+      else {
+        dbg.error('[wsServer] unknown lora msg', args);
+
+      }
+
     }
     else {
       dbg.error('[wsServer] unknown msg', msg);
@@ -190,8 +201,8 @@ export function startMainServer(serverReadyCb) {
     const pi = pis.getPiForIP(info.address, true)
     if (pi) {
       if (msg) {
-        dbg.log(">>>>>>> from pi", msg)
         if (msg.address != "/rssi") {
+          dbg.log(">>>>>>> from pi", msg)
         }
         const toWeb = { uuid: pi.uuid, type: "resp", msg };
         wsServer.broadcast(toWeb)

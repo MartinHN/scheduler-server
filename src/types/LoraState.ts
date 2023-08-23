@@ -3,11 +3,12 @@ export interface LoraState {
   isActive: boolean
   isMasterClock: boolean
   clockUpdateIntervalSec: number
-  uuid: number
   channel: number
   speed: number
   fec: boolean
 }
+
+export const minClockUpdateInterval = 3;
 
 export class DefaultLoraState implements LoraState {
   public isActive = false;
@@ -28,21 +29,16 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
 
     return false
   }
-  for (const n of ['isActive', 'isMasterClock', 'uuid', 'channel', 'speed', 'fec', 'clockUpdateIntervalSec']) {
+  for (const n of ['isActive', 'isMasterClock', 'channel', 'speed', 'fec', 'clockUpdateIntervalSec']) {
     // console.log("check defined", n, s[n])
     if (s[n] === undefined)
       return validErr(n)
   }
 
   s.clockUpdateIntervalSec = parseInt('' + s.clockUpdateIntervalSec)
-  if (s.clockUpdateIntervalSec < 5)
+  if (s.clockUpdateIntervalSec < minClockUpdateInterval)
     return validErr('clockUpdateIntervalSec')
 
-
-
-  s.uuid = parseInt('' + s.uuid)
-  if ((s.uuid < 0) || (s.uuid >= loraUuids.length))
-    return validErr('uuid')
 
   s.channel = parseInt('' + s.channel)
   if ((s.channel < 0) || (s.channel > maxLoraChanNum))
@@ -55,6 +51,7 @@ export function validateLoraState(s: LoraState, fillWithDefaults = false) {
   return true
 
 }
+
 
 
 ////////////:
@@ -87,17 +84,12 @@ export const airDataRates = new Array<number>(0.3, 1.2, 2.4, 4.8, 9.6, 19.2)
 export const defaultAirDataRateIdx = 3
 
 
-////////////////
-// uuids
-
-export const loraUuids = new Array<number>(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
-
 
 
 //////////////////////
 // messages
 
-export enum MessageType { SYNC = 1, ACK, TST } // should be less than 15  (4octets) to allow  next 4 octets to be filled by destId (query messages)
+export enum MessageType { SYNC = 1, PING, PONG, ACTIVATE } // should be less than 15  (4octets) to allow  next 4 octets to be filled by destId (query messages)
 
 
 

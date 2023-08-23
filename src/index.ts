@@ -1,4 +1,6 @@
+import LoraModule from './modules/LoraModule';
 import * as sys from './sysUtils';
+import { dateToStr } from './types';
 
 
 function hasArg(n: string) {
@@ -34,6 +36,10 @@ if (isMainServer) {
     mod.startMainServer(() => {
     })
   })
+
+}
+if (!isMainServer) {
+  LoraModule.setEndpointOnly(true)
 
 }
 

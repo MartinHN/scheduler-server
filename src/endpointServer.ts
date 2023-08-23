@@ -241,6 +241,17 @@ function activate(active: boolean, forceNow = false) {
   }
 }
 
+// lora
+LoraModule.getActiveState = () => {
+  return isActive
+}
+
+LoraModule.onActivate = (b: boolean) => {
+  dbg.log("enpoint got lora activate message ", b ? "1" : "0")
+  isAgendaDisabled = true
+  activate(b)
+}
+
 /// gpio
 
 import GpioM from 'pigpio'
@@ -283,6 +294,7 @@ import { OSCServerModule } from './lib/OSCServerModule'
 import ConfFileWatcher from './ConfFileWatcher';
 import { debug } from 'console';
 import { getActiveDayForDateInAgenda, hourMinutesToString, hourStringToMinutes } from './types/ScheduleTypes';
+import LoraModule from './modules/LoraModule';
 
 
 

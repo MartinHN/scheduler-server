@@ -115,7 +115,12 @@ export function setFromDatestring(ds: string) {
     if (!isPi) {
         return;
     }
+    try {
     const res = execSync(cmd).toString()
     dbg.warn(res)
+    }
+    catch (e) {
+        dbg.error("can not fully set date")
+    }
 
 }
