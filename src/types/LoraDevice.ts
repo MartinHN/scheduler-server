@@ -2,9 +2,9 @@ export enum LoraDeviceType {
   Relaystrio = 0,
   Lumestrio,
 }
+export const LoraTypeNames = new Array("Relaystrio", "Lumestrio")
 
 export const maxDevicePerType = 32;
-export const LoraTypeNames = new Array("Lumestrio", "Relaystrio")
 
 
 export interface LoraDevice {
@@ -35,8 +35,17 @@ export class LoraDeviceInstance implements LoraDevice {
   _isActive = false
   _lastSeen = new Date(0)
 
+  static buildUuid(num: number, type: number) {
+    return num + maxDevicePerType * type
+
+  }
   static getUuid(o: LoraDevice) {
-    return o.deviceNumber + maxDevicePerType * o.deviceType
+    return LoraDeviceInstance.buildUuid(o.deviceNumber, o.deviceType)
+  }
+
+  static getDescFromUuid(uuid: number) {
+    uuid = uuid >>> 0
+    return { type: Math.floor(uuid / maxDevicePerType), num: uuid % maxDevicePerType }
   }
   static create(o: any) {
     const res = new LoraDeviceInstance()

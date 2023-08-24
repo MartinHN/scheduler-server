@@ -7,7 +7,7 @@ import { isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { exec, execSync } from 'child_process';
 import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateFromBuffer, getTypeOfMessage, minClockUpdateInterval } from '../types/LoraState';
-import { LoraDevice, LoraDeviceFile, LoraDeviceArray, validateLoraDevices, LoraDeviceInstance } from '../types/LoraDevice'
+import { LoraDevice, LoraDeviceFile, LoraDeviceArray, validateLoraDevices, LoraDeviceInstance, LoraTypeNames, LoraDeviceType } from '../types/LoraDevice'
 import unix from "unix-dgram"
 import fs from 'fs'
 import * as lora from './LoraModuleHelpers'
@@ -60,7 +60,8 @@ class LoraModule extends lora.LoraSockIface {
 
     constructor() {
         super()
-        this.uuid = parseInt(sys.getHostName().replace("lumestrio", ""))
+        const num = parseInt(sys.getHostName().replace("lumestrio", ""))
+        this.uuid = LoraDeviceInstance.buildUuid(num, LoraDeviceType.Lumestrio);
         dbg.warn("[lora] has uuid of ", this.uuid);
         this.confWatcher = new ConfFileWatcher(this.confFile, obj => { this.parseConf(obj) }, new DefaultLoraState());
         this.knownDevicesWatcher = new ConfFileWatcher(this.knownDevicesFile, obj => { this.parseKnownDevices(obj) }, new Array<LoraDeviceInstance>());
@@ -117,7 +118,7 @@ class LoraModule extends lora.LoraSockIface {
             return
         }
         // send
-        dbg.log("[lora] masterClk sending message", this.isSendingTest ? "pong" : "tick")
+        dbg.log("[lora] masterClk sending message", this.isSendingTest ? "ping" : "tick")
         const syncPoint = new Date();
         let syncMsg = createBufferMessageType(MessageType.SYNC, dateToBuffer(syncPoint))
         if (this.isSendingTest && this.knownLoraDevices?.length) {
@@ -137,7 +138,7 @@ class LoraModule extends lora.LoraSockIface {
         this.sendBufToLora(syncMsg)
         if (!isPi) // local tests
         {
-            if (this.isSendingTest) setTimeout(() => { this.processLoraMsg(Buffer.from([MessageType.PONG, this.currentTstUid])) }, 1000);
+            if (this.isSendingTest) setTimeout(() => { this.processLoraMsg(Buffer.from([MessageType.PONG, this.currentTstUid, false])) }, 1000);
             else {
                 this.processLoraMsg(syncMsg)
                 console.log("should have been", syncPoint.toLocaleString())
@@ -167,7 +168,7 @@ class LoraModule extends lora.LoraSockIface {
             if (buf.length === 1)
                 dbg.error("[lora] invalid ping message")
             if (buf[1] == this.uuid) {
-                dbg.log("[lora] send pong")
+                dbg.log("[lora] got ping send pong")
                 this.sendBufToLora(Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]))
             }
             else {
@@ -175,7 +176,7 @@ class LoraModule extends lora.LoraSockIface {
             }
         }
         else if (headByte == MessageType.PONG) {
-            dbg.log("[lora] got PONG")
+            dbg.log("[lora] got PONG from ", LoraDeviceInstance.getDescFromUuid(buf[1]))
             if (this.isSendingTest) {
                 const uuid = buf[1]
                 const data = buf[2]
