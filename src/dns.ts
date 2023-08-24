@@ -12,6 +12,9 @@ import ping from 'ping'
 import { DeviceDic } from './types';
 import * as appPaths from './filePaths'
 import { getIPAddresses } from './lib/networkUtils';
+import { execSync } from 'child_process';
+import { execPath } from 'process';
+import { isPi } from './platformUtil';
 
 export interface PiConInfo {
   uuid: string;
@@ -24,8 +27,13 @@ export interface PiConInfo {
 
 interface ServiceEP { service: RemoteService, lastT: Date, uuid: string }
 
+
+function serviceHostToUuid(h: string) {
+  return h.replace(".local", "")
+}
 function piFromService(uuid: string, service: RemoteService): PiConInfo {
-  return JSON.parse(JSON.stringify({ uuid, deviceName: service.host, ip: service.referer.address, port: service.port, caps: capsFromSrvTxt(service.txt["caps"] || "") }))
+  let trueUuid = serviceHostToUuid(service.host)
+  return JSON.parse(JSON.stringify({ uuid: trueUuid, deviceName: service.host, ip: service.referer.address, port: service.port, caps: capsFromSrvTxt(service.txt["caps"] || "") }))
 }
 
 function capsFromSrvTxt(t: string): { [id: string]: CapTypeInstance } {
@@ -193,11 +201,17 @@ export function listenDNS(): Model {
   bonjour = bonjourM(mdnsOpts)
   const query = bonjour.find({ type: 'rspstrio', protocol: 'udp' }, (_service) => {
     const service = JSON.parse(JSON.stringify(_service))
-    let uuid = service.txt["uuid"];
+    let uuid = service.host
+    if (!uuid) {
+      dbg.error("no valid uuid", service)
+      return;
+    }
+    uuid = serviceHostToUuid(uuid)
+    // service.txt["uuid"];
 
     if (uuid === undefined) {
       dbg.error("[dns]no uuid present in MDNS")
-      uuid = [service.name, service.port].join('_');
+      // uuid = [service.name, service.port].join('_');
     }
     if (!model.availableRPI[uuid]) {
       model.availableRPI[uuid] = { service: service, lastT: new Date(), uuid }
@@ -248,3 +262,27 @@ export function listenDNS(): Model {
 
   return model
 }
+
+
+// function updateArpForMac() {
+//   const appFilePaths = appPaths.getConf();
+//   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+//   const iface = isPi ? "wlan0" : "en0";
+//   for (const o of Object.values(knownDevices)) {
+//     try {
+
+//       const macStr = o.uuid.split("@")[1]
+//       const arpOut = execSync(`arp -a -i ${iface} | grep ${macStr}`).toString().trim()
+//       if (arpOut) {
+//         const localIp = arpOut.split('(')[1].split[')'][0]
+//         if (o.ip != localIp) {
+//           dbg.warn("[arp] ip changed from ", o.ip, "to", localIp)
+//           o.ip = localIp;
+//         }
+//       }
+//     }
+//     catch (e) {
+//       dbg.error("local arp failed ", e)
+//     }
+//   }
+// }
