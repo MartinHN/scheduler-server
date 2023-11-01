@@ -28,6 +28,7 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "express-static-gzip": "^2.1.7",
+    "i2c-bus": "^5.2.3",
     "json-diff": "^0.5.4",
     "lodash": "^4.17.21",
     "osc": "^2.4.2",

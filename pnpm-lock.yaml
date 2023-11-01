@@ -23,6 +23,9 @@ dependencies:
   express-static-gzip:
     specifier: ^2.1.7
     version: 2.1.7
+  i2c-bus:
+    specifier: ^5.2.3
+    version: 5.2.3
   json-diff:
     specifier: ^0.5.4
     version: 0.5.4
@@ -910,6 +913,15 @@ packages:
       setprototypeof: 1.1.1
       statuses: 1.5.0
       toidentifier: 1.0.0
+    dev: false
+
+  /i2c-bus@5.2.3:
+    resolution: {integrity: sha512-kzFgU0OSIZlaeUUa+VK7L+kkxnj4feimCVQDOPrzj0cTaB+hNweTsO8/j7QvW2gRgWQ7ds5IpfFjpBrX+fMNng==}
+    engines: {node: '>=10.0.0'}
+    requiresBuild: true
+    dependencies:
+      bindings: 1.5.0
+      nan: 2.17.0
     dev: false
 
   /iconv-lite@0.4.24:
