@@ -69,6 +69,7 @@ export function createSock(onMessage) {
 
     sock.on('listening', () => {
         dbg.log("[loraSock]  sock connected")
+        sock.isRegisteredToe32 = true;
         // register to e32
         const buf = Buffer.from('')
         sock.send(buf, 0, buf.length, dataSock);
@@ -82,7 +83,10 @@ export function createSock(onMessage) {
 
     sock.sendBuf = (buf: Buffer) => {
         if (!sock.isRegisteredToe32)
-            throw new Error("csock not yet registered")
+        {
+            dbg.error("csock not yet registered")
+            return
+        }
         sock.send(buf, 0, buf.length, dataSock);
     }
     const oriClose = sock.close
