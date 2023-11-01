@@ -175,7 +175,7 @@ app.get('/rssi', (req, res) => {
 
 //actions
 import audioPlayer from './modules/AudioPlayer'
-import relay from './modules/Relay'
+import relay from './modules/GroveRelay'
 import OSCSenderModule from './modules/OSCSenderModule'
 import vermuthModule from './modules/VermuthModule'
 
