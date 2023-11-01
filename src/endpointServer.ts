@@ -252,39 +252,39 @@ LoraModule.onActivate = (b: boolean) => {
   activate(b)
 }
 
-/// gpio
+/// gpio button play disable for now
 
-import GpioM from 'pigpio'
-if (isPi) {
-  const Gpio = GpioM.Gpio;
-  const pinNums = [12] //== 32 // relay uses [14, 15]
-  let gpioB = [];
-  const debounceTimeMs = 100;
+// import GpioM from 'pigpio'
+// if (isPi) {
+//   const Gpio = GpioM.Gpio;
+//   const pinNums = [12] //== 32 // relay uses [14, 15]
+//   let gpioB = [];
+//   const debounceTimeMs = 100;
 
-  let timeUp = 0;
+//   let timeUp = 0;
 
-  pinNums.forEach(n => {
-    const btn = new Gpio(n, {
-      mode: Gpio.INPUT,
-      pullUpDown: Gpio.PUD_UP, // other end need to be connected to gnd
-      alert: true
-    });
-    // Level must be stable for 10 ms before an alert event is emitted.
-    btn.glitchFilter(debounceTimeMs * 1000);
+//   pinNums.forEach(n => {
+//     const btn = new Gpio(n, {
+//       mode: Gpio.INPUT,
+//       pullUpDown: Gpio.PUD_UP, // other end need to be connected to gnd
+//       alert: true
+//     });
+//     // Level must be stable for 10 ms before an alert event is emitted.
+//     btn.glitchFilter(debounceTimeMs * 1000);
 
-    btn.on('alert', (level, tick) => {
-      dbg.log("new button state :", level)
-      if (level === 0) {
-        audioPlayer.playOnce();
-      }
-    });
-    gpioB.push(btn);
+//     btn.on('alert', (level, tick) => {
+//       dbg.log("new button state :", level)
+//       if (level === 0) {
+//         audioPlayer.playOnce();
+//       }
+//     });
+//     gpioB.push(btn);
 
-  })
+//   })
 
 
 
-}
+// }
 
 
 
