@@ -196,7 +196,12 @@ export function listenDNS(): Model {
   lastIFs = getIPAddresses();
   if (bonjour) bonjour.destroy()
 
-  const mdnsOpts = { interface: "0.0.0.0" };
+  const mdnsOpts = {
+    // interface: undefined,
+    ttl: 6, // set the multicast ttl
+    loopback: true, // receive your own packets
+    reuseAddr: true
+  };
   //ts-ignore : next-line
   bonjour = bonjourM(mdnsOpts)
   const query = bonjour.find({ type: 'rspstrio', protocol: 'udp' }, (_service) => {
