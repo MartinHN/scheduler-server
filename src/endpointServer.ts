@@ -421,9 +421,18 @@ function checkHostName() {
   if (fs.existsSync("/boot/hostname")) {
     const cur = sys.getHostName()
     const des = fs.readFileSync("/boot/hostname").toString().trim();
+    if (!des.length) {
+      dbg.error("can not set empty  hostname")
+      return;
+    }
+    if (!des.startsWith("lumestrio")) {
+      dbg.error("can not set hostname that do not start with lumestrio")
+      return;
+    }
     if (cur != des) {
       dbg.warn(" should change hostName to ", des)
       sys.setHostName(des)
+      sys.reboot();
     }
   }
 }

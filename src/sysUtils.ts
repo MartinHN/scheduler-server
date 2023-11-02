@@ -22,6 +22,10 @@ export function setHostName(newhost: string) {
     if (!isPi) {
         return
     }
+    if (!newhost) {
+        dbg.error("cant set empty hostname");
+        return;
+    }
     const hostn = getHostName();
     uConf.setRW(true);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hosts`);
