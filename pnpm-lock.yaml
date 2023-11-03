@@ -11,6 +11,9 @@ dependencies:
   chokidar:
     specifier: ^3.5.2
     version: 3.5.2
+  cobs:
+    specifier: ^0.2.1
+    version: 0.2.1
   connect-history-api-fallback:
     specifier: ^1.6.0
     version: 1.6.0
@@ -478,6 +481,10 @@ packages:
     engines: {node: '>=0.1.103'}
     dependencies:
       es5-ext: 0.8.2
+    dev: false
+
+  /cobs@0.2.1:
+    resolution: {integrity: sha512-rf2gUd1MS8AoQQG1xpqlXk3wuoIWAwx//GxloBOf8sj1hN15KEjmP/OkC6lyKTx/J0CrULKM3xzlfj9gq3auAQ==}
     dev: false
 
   /code-point-at@1.1.0:
