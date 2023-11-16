@@ -77,7 +77,29 @@ class Model extends EventEmitter {
   }
 
   getPiForIP(ip: string, isAlive = false) {
-    const serviceEP = Object.values(this.availableRPI).find(p => { return p.service.addresses.includes(ip) })
+    const serviceEPs = Object.values(this.availableRPI).filter(p => { return p.service.addresses.includes(ip) })
+    let serviceEP = undefined;
+    if (serviceEPs.length == 1) {
+      serviceEP = serviceEPs[0];
+    }
+    else if (serviceEPs.length > 1) {
+      isAlive = false;
+
+      dbg.warn("try reuse existing pi for ip ", ip)
+      for (const s of serviceEPs) {
+        s.lastT = new Date(0); // fake reset
+      }
+      // const appFilePaths = appPaths.getConf();
+      // const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+      // const devs = Object.values(knownDevices).filter(d => d.ip === ip);
+      // let dev = devs.pop()
+      // while (dev && !serviceEP) {
+      //   serviceEP = this.getPiForUUID(dev.uuid)
+      //   dev = devs.pop()
+      // }
+      // if (!serviceEP)
+      //   dbg.error("could not reuse existing pi for ip ", ip)
+    }
     if (serviceEP) {
       if (isAlive) serviceEP.lastT = new Date()
       return piFromService(serviceEP.uuid, serviceEP.service);
@@ -159,36 +181,36 @@ function broadcastMDNS(query, force = false) {
   //   query.update();
   // }
 }
-function pingAllPis() {
-  const appFilePaths = appPaths.getConf();
-  const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
-  if (!dnsActive || !hasPingEnabled) { return; }
-  dbg.log("[dns] [ping] >>>> start ping")
-  const pingCfg = {
-    timeout: pingTimeout,
-  };
+// function pingAllPis() {
+//   const appFilePaths = appPaths.getConf();
+//   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+//   if (!dnsActive || !hasPingEnabled) { return; }
+//   dbg.log("[dns] [ping] >>>> start ping")
+//   const pingCfg = {
+//     timeout: pingTimeout,
+//   };
 
 
-  for (const s of Object.values(knownDevices)) {// Object.values(model.getAvailablePis())) {
-    (function (curPi) {
-      const host = curPi.ip
-      const hostName = curPi.deviceName
-      dbg.log(`[dns] [ping] will ping host ${hostName} (${host})`);
-      ping.sys.probe(host, (isAlive) => {
-        // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
-        // dbg.log(msg);
-        const resolvedPi = model.availableRPI[curPi.uuid]
-        if (isAlive) {
-          if (resolvedPi) { resolvedPi.lastT = new Date(); }
-          else {
-            dbg.warn("pi not registered but active")
-          }
-        }
-      }, pingCfg);
-    }(s))
-  }
+//   for (const s of Object.values(knownDevices)) {// Object.values(model.getAvailablePis())) {
+//     (function (curPi) {
+//       const host = curPi.ip
+//       const hostName = curPi.deviceName
+//       dbg.log(`[dns] [ping] will ping host ${hostName} (${host})`);
+//       ping.sys.probe(host, (isAlive) => {
+//         // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
+//         // dbg.log(msg);
+//         const resolvedPi = model.availableRPI[curPi.uuid]
+//         if (isAlive) {
+//           if (resolvedPi) { resolvedPi.lastT = new Date(); }
+//           else {
+//             dbg.warn("pi not registered but active")
+//           }
+//         }
+//       }, pingCfg);
+//     }(s))
+//   }
 
-}
+// }
 
 let bonjour;
 export function listenDNS(): Model {
