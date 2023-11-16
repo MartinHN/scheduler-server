@@ -29,19 +29,10 @@ if (!lastEl.startsWith('-')) {
   endpointName = lastEl;
 }
 
+LoraModule.isEndpoint = startClient;
+LoraModule.isServer = isMainServer;
 
-if (isMainServer) {
-  import('./mainServer').then(mod => {
-    shutDownFunctions.push(mod.cleanShutdown)
-    mod.startMainServer(() => {
-    })
-  })
 
-}
-if (!isMainServer) {
-  LoraModule.setEndpointOnly(true)
-
-}
 
 
 if (startClient) {
@@ -56,6 +47,17 @@ if (startClient) {
   {
     shutDownFunctions.push(mod.cleanShutdown)
     mod.startEndpointServer({ endpointName, endpointPort: targetPort })
+  })
+
+}
+
+// important to start after so that main server can override LoraModuleCallbacks
+
+if (isMainServer) {
+  import('./mainServer').then(mod => {
+    shutDownFunctions.push(mod.cleanShutdown)
+    mod.startMainServer(() => {
+    })
   })
 
 }
