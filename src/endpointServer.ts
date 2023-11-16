@@ -242,15 +242,22 @@ function activate(active: boolean, forceNow = false) {
 }
 
 // lora
+
 LoraModule.getActiveState = () => {
   return isActive
 }
+LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; }
 
-LoraModule.onActivate = (b: boolean) => {
+LoraModule.onActivate.push((b: boolean) => {
   dbg.log("enpoint got lora activate message ", b ? "1" : "0")
-  isAgendaDisabled = true
   activate(b)
-}
+})
+
+LoraModule.onDisableAgenda.push((b: boolean) => {
+  dbg.log("enpoint got lora activate message ", b ? "1" : "0")
+  isAgendaDisabled = b;
+})
+
 
 /// gpio button play disable for now
 

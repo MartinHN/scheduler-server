@@ -9,6 +9,7 @@ import { exec, execSync } from 'child_process';
 import { LoraState, DefaultLoraState, validateLoraState } from '../types/LoraState';
 import unix from "unix-dgram"
 import fs from 'fs'
+import cobs from 'cobs'
 
 export function execOnPiOnly(cmd) {
     dbg.log('[lora] cmd will run : ' + cmd)
@@ -224,7 +225,10 @@ export class LoraSockIface {
         if (!this.csock) {
             throw Error("[lora] not created")
         }
-        this.csock.sendBuf(buf)
+        // dbg.warn("pre cobs", Array.from(buf));
+        const cobsBuf = Buffer.concat([cobs.encode(buf), new Uint8Array([0])]);
+        // dbg.warn("cobs", Array.from(cobsBuf));
+        this.csock.sendBuf(cobsBuf)
     }
 
     closeSock() {
@@ -246,7 +250,10 @@ export class LoraSockIface {
 
         if (b) {
             dbg.log('[lora] rebind sock ');
-            this.csock = createSock(this.processLoraMsg.bind(this))
+            this.csock = createSock((buf) => {
+                const decoded = cobs.decode(buf);
+                this.processLoraMsg(decoded)
+            })
         }
         else {
             this.closeSock()

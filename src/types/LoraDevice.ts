@@ -34,6 +34,7 @@ export class LoraDeviceInstance implements LoraDevice {
   _lastRoundtrip = 0
   _isActive = false
   _lastSeen = new Date(0)
+  _pingTimeWithOffset = new Date(0)
 
   static buildUuid(num: number, type: number) {
     return num + maxDevicePerType * type

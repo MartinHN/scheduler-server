@@ -40,22 +40,31 @@ export function startMainServer(serverReadyCb) {
 
   //////////////
   // lora
-  LoraModule.onTimeSync = (d: Date) => {
-    const strToSend = dateToStr(d)
-    dbg.log("[main] got lora sync message for date", strToSend, d.toLocaleString())
+  LoraModule.getActiveState = () => { return isInaugurationMode; }
+  LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; }
+
+  LoraModule.onTimeSync.push((strToSend: string) => {
+    dbg.log("[main] got lora sync message for date", strToSend)
     for (const pi of getKnownPis())
       sendToPi(pi, "/setTimeStr", [strToSend])
-  }
+  })
 
-  LoraModule.onActivate = (b: boolean) => {
+  LoraModule.onActivate.push((b: boolean) => {
     dbg.log("got lora activate message ", b ? "1" : "0")
     setInaugurationMode(b)
-  }
+  })
 
-  LoraModule.onPong = (time: number, uuid: number, data: number) => {
-    console.log("got pong, round trip of", time, uuid, data)
+  LoraModule.onDisableAgenda.push((b: boolean) => {
+    dbg.log("got lora disable agenda message ", b ? "1" : "0")
+    isAgendaDisabled = b;
+    checkAgendaDisabledOnPis(false);
+    wsServer.broadcast({ type: "isAgendaDisabled", data: !!b })
+  })
+
+  LoraModule.onPong.push((time: number, uuid: number, data: number) => {
+    console.log("[lora] got pong, round trip of", time, uuid, data)
     wsServer.broadcast({ type: "loraPong", data: { time, uuid, data } })
-  }
+  })
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
   oscSender.connect("0.0.0.0", 0)
@@ -173,12 +182,14 @@ export function startMainServer(serverReadyCb) {
     }
     else if (addr == "lora") {
       if (args && (args.type === "req")) {
-        if (args.value === "loraIsSendingTest") {
-          wsServer.sendTo(ws, { type: "loraIsSendingTest", data: LoraModule.isSendingTest })
+        if (args.value === "loraIsSendingPing") {
+          wsServer.sendTo(ws, { type: "loraIsSendingPing", data: LoraModule.isSendingPing })
         }
       }
-      else if (args.type === "loraIsSendingTest") {
-        LoraModule.isSendingTest = !!args.value
+      else if (args.type === "loraIsSendingPing") {
+        LoraModule.isSendingPing = !!args.value
+        if (LoraModule.isSendingPing)
+          LoraModule.sendOnePingMsg(); // will schedule nexts
       }
       else if (args.type === "activate") {
         LoraModule.sendActivate(!!args.value?.isActive, LoraDeviceInstance.getUuid(args.value.device))
@@ -322,7 +333,9 @@ export function startMainServer(serverReadyCb) {
     sendToPi(p, "/isAgendaDisabled", [isAgendaDisabled ? 1 : 0]);
   }
 
-  async function checkAgendaDisabledOnPis() {
+  async function checkAgendaDisabledOnPis(sendLora = true) {
+    if (sendLora)
+      LoraModule.sendDisableAgenda(isAgendaDisabled);
     for (const c of getKnownPis()) {
       try {
         checkAgendaDisabledOnPi(c)
@@ -330,6 +343,8 @@ export function startMainServer(serverReadyCb) {
         dbg.error("trying to update agenda disabled", e)
       }
     }
+
+
   }
 
   async function checkEndpointUpToDate(pi: PiConInfo) {
@@ -401,6 +416,8 @@ export function startMainServer(serverReadyCb) {
           dbg.error("trying to update ep", e)
         }
       }
+      if (LoraModule.isMasterServer())
+        LoraModule.sendActivate(isInaugurationMode, 255);
     }
 
     // redundancyyyyyy

@@ -6,7 +6,7 @@ import * as sys from '../sysUtils'
 import { isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { exec, execSync } from 'child_process';
-import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateFromBuffer, getTypeOfMessage, minClockUpdateInterval } from '../types/LoraState';
+import { LoraState, DefaultLoraState, validateLoraState, createBufferMessageType, dateToBuffer, MessageType, dateStrFromBuffer, getTypeOfMessage, minClockUpdateInterval, minPingUpdateInterval, minDelayForResp, minDelayForSend, getNumInPing } from '../types/LoraState';
 import { LoraDevice, LoraDeviceFile, LoraDeviceArray, validateLoraDevices, LoraDeviceInstance, LoraTypeNames, LoraDeviceType } from '../types/LoraDevice'
 import unix from "unix-dgram"
 import fs from 'fs'
@@ -23,39 +23,53 @@ import { dateToStr } from '../types';
 
 
 class LoraModule extends lora.LoraSockIface {
+
+
     confWatcher: ConfFileWatcher;
     knownDevicesWatcher: ConfFileWatcher;
     public state: LoraState;
-    public isSendingTest = false;
+    isMasterServer() { return this.state.isMasterClock };
+    public isSendingPing = false;
     public confFile = appPaths.getConf().baseDir + "/lora.json"
     public knownDevicesFile = appPaths.getConf().baseDir + "/knownLoraDevices.json"
     public knownLoraDevices = [] as LoraDeviceArray
     private clockSyncTimeout
-    private lastClockSentTime: number
+    private pingSyncTimeout
+    private lastPingSentTime: number
     private uuid: number
 
-    private currentTstUid = 25;
-    private currentTstIdx = 0;
+    private currentTstUids = new Array<number>();
+    private currentPingIdx = 0;
 
-    private isEndpointOnly = false
+    public isEndpoint = false;
+    public isServer = false;
 
-    public onTimeSync = (d: Date) => {
 
-    }
-    public onActivate = (b: boolean) => {
+    public onTimeSync = new Array<{
+        (strToSend: string): void;
+    }>()
 
-    }
+    public onActivate = new Array<{
+        (b: boolean): void
+    }>()
+
+    public onDisableAgenda = new Array<{
+        (b: boolean): void
+    }>()
+
+    public onPong = new Array<{
+        (time: number, id: number, data: number): void
+    }>()
+
 
 
     public getActiveState = () => {
+        dbg.error("should be overriden by endpoint")
         return false;
     }
-    public onPong = (time: number, id: number, data: number) => {
-
-    }
-
-    setEndpointOnly(b: boolean) {
-        this.isEndpointOnly = b
+    public getAgendaDisabled = () => {
+        dbg.error("should be overriden by endpoint")
+        return false;
     }
 
     constructor() {
@@ -86,7 +100,7 @@ class LoraModule extends lora.LoraSockIface {
 
     parseKnownDevices(o: LoraDeviceFile) {
         if (!o) o = new Array<LoraDeviceInstance>()
-        console.log("loding lora devices", o)
+        dbg.log("[lora] loding lora devices", o)
         if (!validateLoraDevices(o, true)) {
             dbg.error("received incomplete lora devices", o)
         }
@@ -96,9 +110,86 @@ class LoraModule extends lora.LoraSockIface {
     }
 
 
+    getLoraDeviceFromUuid(uuid: number) {
+        for (const d of this.knownLoraDevices)
+            if (LoraDeviceInstance.getUuid(d) === uuid)
+                return d
+
+    }
+
+
+    // Pings
+    scheduleNextPingMsg() {
+        if (!this.isServer) return;
+        const nextTimeout = this.state.pingUpdateIntervalSec >>> 0
+        // dbg.log("[lora] master Clock scheduling next", nextTimeout)
+        if (nextTimeout < minPingUpdateInterval) {
+            dbg.error("[lora] invalid timeout", this.state.pingUpdateIntervalSec)
+            return
+        }
+        if (this.pingSyncTimeout)
+            clearTimeout(this.pingSyncTimeout)
+        this.pingSyncTimeout = setTimeout(this.sendOnePingMsg.bind(this), nextTimeout * 1000)
+    }
+
+
+    sendOnePingMsg() {
+        if (!this.isServer) return;
+        if (!this.state.isActive || !this.isSendingPing) {
+            dbg.error("[lora] should not send ping stopping...");
+            clearTimeout(this.pingSyncTimeout)
+            return
+        }
+        // send
+        dbg.log("[lora] masterClk sending message ping")
+        const syncPoint = new Date();
+
+        if (this.knownLoraDevices?.length) {
+            let numInPing = getNumInPing(this.state.pingUpdateIntervalSec * 1000);
+            numInPing = Math.min(numInPing, this.knownLoraDevices.length)
+            // dbg.log("[lora] numSlotsForPing ", numInPing)
+            this.currentTstUids = new Array<number>();
+            const startPingMs = Date.now();
+            for (let i = 0; i < numInPing; i++) {
+                this.currentPingIdx = (this.currentPingIdx + 1) % this.knownLoraDevices.length
+                const dev = this.knownLoraDevices[this.currentPingIdx];
+                if (!dev) {
+                    dbg.error("[lora] device not found for ", this.currentPingIdx)
+                }
+                else {
+                    this.currentTstUids.push(LoraDeviceInstance.getUuid(dev))
+                    dev._pingTimeWithOffset = new Date(startPingMs + i * minDelayForResp)
+                    dbg.warn("[lora] will ping ", dev.deviceType, dev.deviceNumber, "faking : ", dev._pingTimeWithOffset)
+                }
+            }
+            const centiSec = Math.ceil(minDelayForResp / 10);
+            const prelude = [this.getAgendaDisabled() ? 1 : 0];
+            const syncMsg = createBufferMessageType(MessageType.PING, Buffer.from([...prelude, centiSec, ...this.currentTstUids]));
+            this.lastPingSentTime = new Date().getTime()
+            this.sendBufToLora(syncMsg)
+        }
+
+        if (!isPi) // local tests
+        {
+            const pongChain = () => {
+                const pongUuid = this.currentTstUids.shift();
+                if (pongUuid) {
+                    setTimeout(() => {
+                        this.processLoraMsg(Buffer.from([MessageType.PONG, pongUuid, false]))
+                    }, 1000);
+                }
+            }
+            pongChain();
+
+
+        }
+        // schedule next
+        this.scheduleNextPingMsg()
+    }
+
     // MasterClock
     scheduleNextClockSync() {
-        if (this.isEndpointOnly) return;
+        if (!this.isServer) return;
         const nextTimeout = this.state.clockUpdateIntervalSec >>> 0
         // dbg.log("[lora] master Clock scheduling next", nextTimeout)
         if (nextTimeout < minClockUpdateInterval) {
@@ -110,77 +201,89 @@ class LoraModule extends lora.LoraSockIface {
         this.clockSyncTimeout = setTimeout(this.sendOneClockSync.bind(this), nextTimeout * 1000)
     }
 
+
     sendOneClockSync() {
-        if (this.isEndpointOnly) return;
+        if (!this.isServer) return;
         if (!this.state.isActive || !this.state.isMasterClock) {
             dbg.error("[lora] should not send clock stopping...");
             clearTimeout(this.clockSyncTimeout)
             return
         }
         // send
-        dbg.log("[lora] masterClk sending message", this.isSendingTest ? "ping" : "tick")
+        dbg.log("[lora] masterClk sending message tick")
         const syncPoint = new Date();
         let syncMsg = createBufferMessageType(MessageType.SYNC, dateToBuffer(syncPoint))
-        if (this.isSendingTest && this.knownLoraDevices?.length) {
-            this.currentTstIdx = (this.currentTstIdx + 1) % this.knownLoraDevices.length
-            const dev = this.knownLoraDevices[this.currentTstIdx];
-            console.warn("will test ", dev?.deviceType, dev?.deviceNumber)
-            if (!dev) {
-                console.error("device not found for ", this.currentTstIdx)
-            }
-            else {
-                this.currentTstUid = LoraDeviceInstance.getUuid(dev)
-                syncMsg = createBufferMessageType(MessageType.PING, Buffer.from([this.currentTstUid]));
-            }
-        }
-        this.lastClockSentTime = new Date().getTime()
-
         this.sendBufToLora(syncMsg)
         if (!isPi) // local tests
         {
-            if (this.isSendingTest) setTimeout(() => { this.processLoraMsg(Buffer.from([MessageType.PONG, this.currentTstUid, false])) }, 1000);
-            else {
-                this.processLoraMsg(syncMsg)
-                console.log("should have been", syncPoint.toLocaleString())
-            }
+            this.processLoraMsg(syncMsg)
+            dbg.log("[lora] should have been", syncPoint.toLocaleString())
         }
         // schedule next
         this.scheduleNextClockSync()
     }
 
 
-
+    sendDisableAgenda(shouldDisable: boolean) {
+        let syncMsg = createBufferMessageType(MessageType.DISABLE_AGENDA, Buffer.from([shouldDisable ? 1 : 0]));
+        this.sendBufToLora(syncMsg)
+    }
 
     processLoraMsg(buf: Buffer) {
-
+        dbg.log("[lora] new msg");
         if (buf.length === 0) { dbg.error("[lora] rcvd empty msg"); return }
 
         const headByte = buf[0]
         if (headByte == MessageType.SYNC) {
-            const d = dateFromBuffer(buf, 1)
+
+            const strToSend = dateStrFromBuffer(buf, 1);
             // set local time
-            const strToSend = dateToStr(d)
             sys.setFromDatestring(strToSend);
             // notify
-            this.onTimeSync(d);
+            this.onTimeSync.map(fn => fn(strToSend));
         }
         else if (headByte == MessageType.PING) {
-            if (buf.length === 1)
+            let curIdx = 1;
+            if (buf.length - curIdx < 2)
                 dbg.error("[lora] invalid ping message")
-            if (buf[1] == this.uuid) {
-                dbg.log("[lora] got ping send pong")
-                this.sendBufToLora(Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]))
+            const isAgendaDisabled = !!buf[curIdx]
+            this.onDisableAgenda.map(f => f(isAgendaDisabled));
+            curIdx++;
+            const slotDelayMs = buf[curIdx] * 10
+            curIdx++
+            let slotId = -1
+            for (let i = curIdx; i < buf.length; i++) {
+                if (buf[i] == this.uuid)
+                    slotId = i - curIdx;
+            }
+            if (slotId >= 0) {
+                const delay = slotId * slotDelayMs
+                if (delay >= 0 && delay < 4000) {
+                    dbg.log("[lora] got ping send pong delayed :", delay)
+                    setTimeout(() => {
+                        this.sendBufToLora(Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]))
+                    }, delay);
+                }
+                else
+                    dbg.error("got weird delay", delay);
             }
             else {
-                dbg.log("[lora] pingin someone else", buf[1])
+                dbg.log("[lora] pingin someone else", Array.from(buf.slice(3)))
             }
         }
         else if (headByte == MessageType.PONG) {
             dbg.log("[lora] got PONG from ", LoraDeviceInstance.getDescFromUuid(buf[1]))
-            if (this.isSendingTest) {
+            if (this.isServer) {
                 const uuid = buf[1]
                 const data = buf[2]
-                this.onPong(new Date().getTime() - this.lastClockSentTime, uuid, data)
+                let dt = new Date().getTime() - this.lastPingSentTime;
+
+                const knownPinged = this.getLoraDeviceFromUuid(uuid)
+                if (knownPinged) {
+                    dt = new Date().getTime() - knownPinged._pingTimeWithOffset.getTime();
+                }
+                else { dbg.error("[lora] ping from uknown pi") };
+                this.onPong.map(fn => fn(dt, uuid, data))
             }
 
 
@@ -190,7 +293,16 @@ class LoraModule extends lora.LoraSockIface {
             const uuid = buf[1]
             const data = buf[2]
             if ((uuid == this.uuid) || (uuid == 255))
-                this.onActivate(!!data)
+            {
+                this.onActivate.map(fn => fn(!!data));
+                if (this.isEndpoint && !this.isMasterServer() && (uuid != 255))
+                    this.sendBufToLora(Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]))
+            }
+
+        }
+        else if (headByte == MessageType.DISABLE_AGENDA) {
+            const data = buf[1]
+            this.onDisableAgenda.map(fn => fn(!!data))
         }
         else {
             // dbg.log("lora type", getTypeOfMessage(buf))
@@ -201,6 +313,14 @@ class LoraModule extends lora.LoraSockIface {
     sendActivate(b: boolean, uuid?: number) {
         if (uuid === undefined) uuid = 255
         console.log("[lora] will send activate ", b, uuid)
+        // mark as pinged
+        const dev = this.knownLoraDevices.find(e => LoraDeviceInstance.getUuid(e) == uuid);
+        if (!dev) {
+            if (uuid != 255)
+                dbg.error("[lora] device not found for ", uuid)
+        } else
+            dev._pingTimeWithOffset = new Date()
+
         this.sendBufToLora(Buffer.from([MessageType.ACTIVATE, uuid, b]))
 
     }
