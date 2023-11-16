@@ -187,7 +187,7 @@ export function getActiveDayForDateInAgenda(d: Date, ag: Agenda): DayType {
     return (actDay >= startD && actDay <= endD)
   })
   if (ex) {
-    dbg.log('getting for exception Period', ex.dayValue)
+    // dbg.log('getting for exception Period', ex.dayValue)
     return ex.dayValue;
   }
   const dow = (actDay.getDay() + 6) % 7
