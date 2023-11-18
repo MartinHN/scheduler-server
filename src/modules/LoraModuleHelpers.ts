@@ -196,6 +196,22 @@ testHexConf();
 
 
 
+function readUntilNull(buffer, offset = 0) {
+    let nullIndex = -1;
+    for (let i = offset; i < buffer.length; i++) {
+        if (buffer[i] === 0) {
+            nullIndex = i;
+            break;
+        }
+    }
+    if (nullIndex !== -1) {
+        const res = buffer.slice(offset, nullIndex); // Extract data until '\0'
+        const remaining = buffer.slice(nullIndex + 1); // Extract remaining data after '\0'
+        return { res, remaining };
+    }
+    dbg.error("!!!!weird buffer not ending with zero");
+    return { res: buffer, remaining: Buffer.alloc(0) }; // Return original buffer if '\0' not found
+}
 
 export class LoraSockIface {
     // helper to manage socket lifetime and e32.service
@@ -226,7 +242,7 @@ export class LoraSockIface {
             throw Error("[lora] not created")
         }
         // dbg.warn("pre cobs", Array.from(buf));
-        const cobsBuf = Buffer.concat([cobs.encode(buf), new Uint8Array([0])]);
+        const cobsBuf = Buffer.concat([cobs.encode(buf), Buffer.from([0])]);
         // dbg.warn("cobs", Array.from(cobsBuf));
         this.csock.sendBuf(cobsBuf)
     }
@@ -251,13 +267,17 @@ export class LoraSockIface {
         if (b) {
             dbg.log('[lora] rebind sock ');
             this.csock = createSock((buf) => {
-                const decoded = cobs.decode(buf);
-                this.processLoraMsg(decoded)
+                while (buf && buf.length) {
+                    const { res, remaining } = readUntilNull(buf)
+                    dbg.warn("incoming lora msg size", res.length, "remaining", remaining.length)
+                    const decoded = cobs.decode(res);
+                    this.processLoraMsg(decoded)
+                    buf = remaining
+                }
             })
         }
         else {
             this.closeSock()
-
         }
     }
 
@@ -266,3 +286,4 @@ export class LoraSockIface {
         return execOnPiOnly(`systemctl status e32.service --no-pager; echo $?`).toString() === "0";
     }
 }
+

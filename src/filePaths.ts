@@ -53,6 +53,10 @@ export function writeFileObj(p: string, data: any) {
     dbg.log("writing to file", p);
     uConf.setRW(true);
     try {
+        // const stripped = {};
+        // for (const [k, v] of Object.entries(data))
+        //     if (!k.startsWith("_"))
+        //         stripped[k] = v
         fs.writeFileSync(p, JSON.stringify(data, null, 2), { encoding: 'utf-8' })
     } catch (error) {
         dbg.error("can't parse file", p, error)

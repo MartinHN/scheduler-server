@@ -149,7 +149,7 @@ export function createDefaultAgenda(): Agenda {
 
 export function isActiveForDayType(d: Date, day: DayType): boolean {
   if (!day.hourRangeList || !day.hourRangeList.length) {
-    dbg.log('empty day')
+    // dbg.log('empty day')
     return false
   }
   const curMinutes = d.getHours() * 60 + d.getMinutes()
@@ -192,6 +192,7 @@ export function getActiveDayForDateInAgenda(d: Date, ag: Agenda): DayType {
   }
   const dow = (actDay.getDay() + 6) % 7
   const dn = dayNames[dow]
+
   return ag.defaultWeek.exceptions.find(e => e.dayName === dn) || ag.defaultWeek.defaultDay as DayType
 }
 

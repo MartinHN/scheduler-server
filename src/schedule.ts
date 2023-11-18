@@ -5,7 +5,7 @@ import * as endp from './endpointConfig'
 import * as dbg from './dbg'
 
 import * as ScheduleTypes from './types/ScheduleTypes'
-import { Agenda } from './types/ScheduleTypes'
+import { Agenda, createDefaultWeekHour } from './types/ScheduleTypes'
 import ConfFileWatcher from './ConfFileWatcher'
 
 let curAgenda: Agenda = ScheduleTypes.createDefaultAgenda()
@@ -78,6 +78,14 @@ export function getAgendaShouldActivate() {
 }
 
 function applyNewSchedule(o: Agenda) {
+    if (o.agendaExceptionList == undefined) {
+        dbg.error("!!!!!!agenda has no agendaExceptionList")
+        o.agendaExceptionList = []
+    }
+    if (o.defaultWeek == undefined) {
+        dbg.error("!!!!!!agenda has no defaultWeeeks")
+        o.defaultWeek = createDefaultWeekHour()
+    }
     curAgenda = o;
     wasActive = undefined;
     checkIfShouldBeActive();

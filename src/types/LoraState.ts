@@ -95,7 +95,7 @@ export const defaultAirDataRateIdx = 3
 //////////////////////
 // messages
 
-export enum MessageType { SYNC = 1, PING, PONG, ACTIVATE, DISABLE_AGENDA } // should be less than 15  (4octets) to allow  next 4 octets to be filled by destId (query messages)
+export enum MessageType { SYNC = 1, PING, PONG, ACTIVATE, DISABLE_AGENDA, FILE_MSG } // should be less than 15  (4octets) to allow  next 4 octets to be filled by destId (query messages)
 
 
 
@@ -116,14 +116,38 @@ export function dateToBuffer(d: Date) {
   return buf
 }
 
-export function dateStrFromBuffer(b: Buffer, offset = 0): string {
-  let str = b.toString('utf-8', offset);
+export function readUntilNull(buffer, offset = 0) {
+  let nullIndex = -1;
+
+  for (let i = offset; i < buffer.length; i++) {
+    if (buffer[i] === 0) {
+      nullIndex = i;
+      break;
+    }
+  }
+
+  if (nullIndex !== -1) {
+    const res = buffer.slice(offset, nullIndex); // Extract data until '\0'
+    const remaining = buffer.slice(nullIndex + 1); // Extract remaining data after '\0'
+    return { res, remaining };
+  }
+
+  return { res: buffer, remaining: Buffer.alloc(0) }; // Return original buffer if '\0' not found
+}
+
+export function strFromBuffer(b: Buffer, offset = 0): string {
+  const { res, remaining } = readUntilNull(b, offset)
+  let str = b.toString('utf-8');
   str.trimEnd()
   if (str.length && str.charCodeAt(str.length - 1) == 0) {
     str = str.substring(0, str.length - 1);
   }
   return str;
 
+}
+
+export function dateStrFromBuffer(b: Buffer, offset = 0): string {
+  return strFromBuffer(b, offset)
 }
 
 const testDate = new Date()

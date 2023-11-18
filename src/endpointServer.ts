@@ -21,6 +21,8 @@ import { Looper } from './lib/Looper'
 
 import { isPi, isOSX } from './platformUtil'
 import { getIpOfInterface } from './lib/networkUtils'
+import { createHash } from 'crypto'
+
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
 const targetIf = isPi ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
@@ -108,6 +110,19 @@ app.get('/agendaFile', (req, res) => {
   readable.pipe(res);
 })
 
+app.get('/agendaFile.md5', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  try {
+    var content = fs.readFileSync(endp.conf.agendaFile).toString();
+    const minObj = JSON.stringify(JSON.parse(content), null, 0)
+    let hash = createHash('md5').update(minObj).digest("hex")
+    res.send(hash);
+  }
+  catch {
+    res.send("error");
+  }
+})
+
 
 
 app.post('/post/agendaFile', async (req, res) => {
@@ -159,7 +174,7 @@ app.get('/time', (req, res) => {
 
 
 app.get('/rssi', (req, res) => {
-  res.setHeader('Content-Type', 'application/text');
+  res.setHeader('Content-Type', 'text/plain');
   const to = "" + sys.getRSSI();
   dbg.log("getting rssi", to)
   res.send(to);
@@ -246,6 +261,18 @@ function activate(active: boolean, forceNow = false) {
 LoraModule.getActiveState = () => {
   return isActive
 }
+
+LoraModule.getAgendaMD5 = () => {
+  try {
+    var content = fs.readFileSync(endp.conf.agendaFile).toString();
+    const minObj = JSON.stringify(JSON.parse(content), null, 0)
+    return createHash('md5').update(minObj).digest("hex")
+  }
+  catch (e) {
+    dbg.error("can not get agenda md5", e)
+  }
+  return ""
+}
 LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; }
 
 LoraModule.onActivate.push((b: boolean) => {
@@ -256,6 +283,21 @@ LoraModule.onActivate.push((b: boolean) => {
 LoraModule.onDisableAgenda.push((b: boolean) => {
   dbg.log("enpoint got lora activate message ", b ? "1" : "0")
   isAgendaDisabled = b;
+})
+
+LoraModule.onNewFile.push(async (data: string) => {
+  dbg.log("enpoint got lora new file ")
+  uConf.setRW(true)
+  try {
+    await fs.writeFile(endp.conf.agendaFile, data, (err) => {
+      if (err) throw err;
+      dbg.log('The agenda file has been saved!', endp.conf.agendaFile, data);
+    })
+  }
+  catch (e) {
+    dbg.error("can't parse lora file ", e)
+  }
+  uConf.setRW(false)
 })
 
 

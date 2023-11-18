@@ -11,9 +11,12 @@ export interface LoraDevice {
   deviceType: LoraDeviceType
   deviceNumber: number
   deviceName: string
+  group: string
   _lastRoundtrip: number
   _isActive: boolean
   _lastSeen: Date
+  _isAgendaInSync: boolean
+  _missingFileParts: Array<number>
 }
 
 
@@ -31,10 +34,14 @@ export class LoraDeviceInstance implements LoraDevice {
   deviceType = LoraDeviceType.Lumestrio
   deviceNumber = -1
   deviceName = "no name"
+  group = ""
+  _isAgendaInSync = false
+  _missingFileParts = []
   _lastRoundtrip = 0
   _isActive = false
   _lastSeen = new Date(0)
   _pingTimeWithOffset = new Date(0)
+  _lastAgendaMD5 = ""
 
   static buildUuid(num: number, type: number) {
     return num + maxDevicePerType * type
@@ -55,6 +62,7 @@ export class LoraDeviceInstance implements LoraDevice {
     res.deviceType = o.deviceType >>> 0
     res.deviceNumber = o.deviceNumber >>> 0
     res.deviceName = o.deviceName || "no name"
+    res.group = o.group || ""
     return res;
   }
 }

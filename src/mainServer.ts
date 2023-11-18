@@ -15,7 +15,7 @@ import chokidar from 'chokidar';
 import _ from 'lodash'
 import { dateToStr } from './types';
 import { LoraDeviceInstance, LoraDeviceFile } from './types/LoraDevice';
-
+import { createHash } from 'crypto'
 
 let isInaugurationMode = false;
 
@@ -55,15 +55,52 @@ export function startMainServer(serverReadyCb) {
   })
 
   LoraModule.onDisableAgenda.push((b: boolean) => {
-    dbg.log("got lora disable agenda message ", b ? "1" : "0")
+    dbg.log("server got lora disable agenda message ", b ? "1" : "0")
     isAgendaDisabled = b;
     checkAgendaDisabledOnPis(false);
     wsServer.broadcast({ type: "isAgendaDisabled", data: !!b })
   })
 
-  LoraModule.onPong.push((time: number, uuid: number, data: number) => {
-    console.log("[lora] got pong, round trip of", time, uuid, data)
-    wsServer.broadcast({ type: "loraPong", data: { time, uuid, data } })
+  LoraModule.onPong.push((time: number, uuid: number, activeState: number, agendaMd5: string) => {
+    console.log("[lora] got pong, round trip of", time, uuid, activeState)
+    if (!LoraModule.isSendingPing) return;
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownLoraDevicesFile) || {}) as LoraDeviceFile
+    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {}) as Groups
+    const fullDescStr = JSON.stringify(LoraDeviceInstance.getDescFromUuid(uuid));
+    const curDev = knownDevices.find(d => LoraDeviceInstance.getUuid(d) == uuid)
+    if (!curDev) {
+      dbg.error('[app] onLoraPong no known device for ', fullDescStr)
+      return;
+    }
+
+    const curGroupObj = groups[curDev.group]
+    if (!curGroupObj) {
+      dbg.error('[app] onLoraPong no known group for  ignore checking agenda', fullDescStr)
+      return;
+    }
+
+    let agendaName = curGroupObj.agendaFileName
+    if (!agendaName.endsWith('.json')) agendaName += '.json'
+    const agendaPath = appFilePaths.agendasFolder + "/" + agendaName
+    if (!fs.existsSync(agendaPath)) {
+      dbg.error('[app] onLoraPong no known path for agenda', agendaPath)
+      return;
+    }
+    let isAgendaInSync = false;//Math.random() > .5 ? true : false;
+    try {
+      const content = fs.readFileSync(agendaPath).toString()
+      const minObj = JSON.stringify(JSON.parse(content), null, 0)
+      let hash = createHash('md5').update(minObj).digest("hex").trim()
+      isAgendaInSync = hash == agendaMd5.trim()
+      if (!isAgendaInSync) {
+        dbg.error("pong out of sync ", hash, "vs", agendaMd5.trim())
+      }
+    } catch (e) {
+      console.error("can't check agenda on lora dev", fullDescStr, e);
+    }
+
+    wsServer.broadcast({ type: "loraPong", data: { time, uuid, activeState, isAgendaInSync } })
   })
   // to XXXstrios
   const oscSender = new OSCServerModule(msgFromPi)
@@ -185,11 +222,33 @@ export function startMainServer(serverReadyCb) {
         if (args.value === "loraIsSendingPing") {
           wsServer.sendTo(ws, { type: "loraIsSendingPing", data: LoraModule.isSendingPing })
         }
+        else if (args.value === "loraIsSyncingAgendas") {
+          wsServer.sendTo(ws, { type: "loraIsSyncingAgendas", data: LoraModule.loraIsSyncingAgendas })
+        }
+        else if (args.value === "loraIsCheckingAgendas") {
+          wsServer.sendTo(ws, { type: "loraIsCheckingAgendas", data: LoraModule.loraIsCheckingAgendas })
+        }
+        else if (args.value === "loraIsDisablingWifi") {
+          wsServer.sendTo(ws, { type: "loraIsDisablingWifi", data: LoraModule.loraIsDisablingWifi })
+        }
       }
       else if (args.type === "loraIsSendingPing") {
         LoraModule.isSendingPing = !!args.value
         if (LoraModule.isSendingPing)
           LoraModule.sendOnePingMsg(); // will schedule nexts
+      }
+      else if (args.type === "loraIsSyncingAgendas") {
+        LoraModule.loraIsSyncingAgendas = !!args.value
+        if (LoraModule.loraIsSyncingAgendas)
+          LoraModule.startAgendaSync(); // will schedule nexts
+        else
+          LoraModule.stopAgendaSync()
+      }
+      else if (args.type === "loraIsCheckingAgendas") {
+        LoraModule.loraIsCheckingAgendas = !!args.value
+      }
+      else if (args.type === "loraIsDisablingWifi") {
+        LoraModule.loraIsDisablingWifi = !!args.value
       }
       else if (args.type === "activate") {
         LoraModule.sendActivate(!!args.value?.isActive, LoraDeviceInstance.getUuid(args.value.device))

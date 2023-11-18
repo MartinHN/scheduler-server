@@ -14,7 +14,7 @@ import * as  sys from './sysUtils';
 import * as dbg from './dbg'
 import expressStaticGzip from 'express-static-gzip'
 import * as uConf from './userConf'
-
+import { createHash } from 'crypto'
 const app = express();
 
 app.use(cors())
@@ -118,6 +118,27 @@ app.post('/groups', async (req, res) => {
 })
 
 
+app.get('/md5', (req, res) => {
+  const fn = getFileNameFromQ(req)
+  // dbg.log("get agenda", fn)
+  if (fs.existsSync(fn)) {
+    res.setHeader('Content-Type', 'text/plain');
+    try {
+      var content = fs.readFileSync(fn).toString();
+      const minObj = JSON.stringify(JSON.parse(content), null, 0)
+      let hash = createHash('md5').update(minObj).digest("hex")
+      res.send(hash);
+    }
+    catch {
+      res.send("error");
+    }
+  }
+  else {
+    dbg.error("agenda not found")
+    res.sendStatus(404)
+  }
+
+})
 
 ////////////////////
 // Agendas
