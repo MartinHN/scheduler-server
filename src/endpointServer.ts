@@ -493,12 +493,8 @@ function checkHostName() {
   if (!fs.existsSync("/boot/hostname.txt")) {
     uConf.setRW(true)
     console.warn(">>>>>>>>> setting random hostname")
-    let mac = sys.getMac()
-    if (!mac || (mac == "unknown")) {
-      mac = parseInt("" + (Math.random() * 1000))
-    }
-    const randomName = "rpi_" + mac
-    execSync(`echo ${randomName} /boot/hostname.txt`);
+    const randomName = "lumestrio" + parseInt("" + 100 + (Math.random() * 1000))
+    execSync(`echo ${randomName} > /boot/hostname.txt`);
     uConf.setRW(false)
   }
   if (fs.existsSync("/boot/hostname.txt")) {

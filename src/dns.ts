@@ -77,7 +77,7 @@ class Model extends EventEmitter {
   }
 
   getPiForIP(ip: string, isAlive = false) {
-    const serviceEPs = Object.values(this.availableRPI).filter(p => { return p.service.addresses.includes(ip) })
+    const serviceEPs = Object.values(this.availableRPI).filter(p => { return p.service.addresses.includes(ip) || (p.service.referer.address == ip) })
     let serviceEP = undefined;
     if (serviceEPs.length == 1) {
       serviceEP = serviceEPs[0];
