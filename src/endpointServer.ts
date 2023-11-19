@@ -127,7 +127,7 @@ app.get('/agendaFile.md5', (req, res) => {
 
 app.post('/post/agendaFile', async (req, res) => {
   uConf.setRW(true)
-  await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body, null, 2), (err) => {
+  await fs.writeFile(endp.conf.agendaFile, JSON.stringify(req.body, null, 0), (err) => {
     if (err) throw err;
     dbg.log('The agenda file has been saved!', endp.conf.agendaFile, req.body);
   })
@@ -190,7 +190,14 @@ app.get('/rssi', (req, res) => {
 
 //actions
 import audioPlayer from './modules/AudioPlayer'
-import relay from './modules/GroveRelay'
+let relay
+if (isPi) {
+  // const mod = await import('./modules/GroveRelay')
+  // relay = mod.default
+  const mod = await import('./modules/Relay')
+  relay = mod.default
+
+}
 import OSCSenderModule from './modules/OSCSenderModule'
 import vermuthModule from './modules/VermuthModule'
 
@@ -237,7 +244,9 @@ function sendStartOrStopMessage(active, playOnce = false) {
   }
   else
     audioPlayer.activate(active);
-  relay.activate(active)
+  if (isPi) {
+    relay.activate(active)
+  }
   oscModule.activate(active);
   oscModule2.activate(active);
   vermuthModule.activate(active);
@@ -281,7 +290,7 @@ LoraModule.onActivate.push((b: boolean) => {
 })
 
 LoraModule.onDisableAgenda.push((b: boolean) => {
-  dbg.log("enpoint got lora activate message ", b ? "1" : "0")
+  dbg.log("enpoint got disable agenda ", b ? "1" : "0")
   isAgendaDisabled = b;
 })
 
@@ -467,9 +476,34 @@ const epOSC = new OSCServerModule((msg, time, info) => {
 let isAgendaDisabled = false;
 
 function checkHostName() {
-  if (fs.existsSync("/boot/hostname")) {
+  // const LnumSDName = sys.getMountedSDCardName()
+  // const matchNormName = LnumSDName.toUpperCase().match(/L ?\d+$/)
+  // if (matchNormName) {
+  //   const normName = matchNormName[0]
+  //   const targetHostname = "lumestrio" + parseInt(normName.match(/\d+$/)[0])
+  //   const cur = sys.getHostName();
+  //   if (cur != targetHostname) {
+  //     dbg.warn("force override hostname to", targetHostname, "using sd card name", LnumSDName)
+  //     sys.setHostName(targetHostname)
+  //     sys.reboot();
+  //   }
+
+
+  // }
+  if (!fs.existsSync("/boot/hostname.txt")) {
+    uConf.setRW(true)
+    console.warn(">>>>>>>>> setting random hostname")
+    let mac = sys.getMac()
+    if (!mac || (mac == "unknown")) {
+      mac = parseInt("" + (Math.random() * 1000))
+    }
+    const randomName = "rpi_" + mac
+    execSync(`echo ${randomName} /boot/hostname.txt`);
+    uConf.setRW(false)
+  }
+  if (fs.existsSync("/boot/hostname.txt")) {
     const cur = sys.getHostName()
-    const des = fs.readFileSync("/boot/hostname").toString().trim();
+    const des = fs.readFileSync("/boot/hostname.txt").toString().trim();
     if (!des.length) {
       dbg.error("can not set empty  hostname")
       return;

@@ -210,7 +210,7 @@ function readUntilNull(buffer, offset = 0) {
         return { res, remaining };
     }
     dbg.error("!!!!weird buffer not ending with zero");
-    return { res: buffer, remaining: Buffer.alloc(0) }; // Return original buffer if '\0' not found
+    return { res: buffer, remaining: Buffer.from([]) }; // Return original buffer if '\0' not found
 }
 
 export class LoraSockIface {
@@ -268,6 +268,10 @@ export class LoraSockIface {
             dbg.log('[lora] rebind sock ');
             this.csock = createSock((buf) => {
                 while (buf && buf.length) {
+                    if (buf.length && buf[buf.length - 1] != 0) {
+                        dbg.error('discard buffer not ended with zero', buf)
+                        break;
+                    }
                     const { res, remaining } = readUntilNull(buf)
                     dbg.warn("incoming lora msg size", res.length, "remaining", remaining.length)
                     const decoded = cobs.decode(res);

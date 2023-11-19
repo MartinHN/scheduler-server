@@ -6,7 +6,6 @@ export const LoraTypeNames = new Array("Relaystrio", "Lumestrio")
 
 export const maxDevicePerType = 32;
 
-
 export interface LoraDevice {
   deviceType: LoraDeviceType
   deviceNumber: number

@@ -173,7 +173,7 @@ app.post('/agendas', async (req, res) => {
   const fn = getFileNameFromQ(req)
   dbg.log("creating agenda", fn)
   uConf.setRW(true)
-  await fs.writeFile(fn, JSON.stringify(req.body, null, 2), (err) => {
+  await fs.writeFile(fn, JSON.stringify(req.body, null, 0), (err) => {
     if (err) throw err;
     dbg.log('The file has been saved!', req.body);
   })

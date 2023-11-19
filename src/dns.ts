@@ -143,12 +143,15 @@ export function setDNSActive(b) {
 
 
 let lastIFs = [];
+let dnsWarmupMs = 3 * 1000
 function broadcastMDNS(query, force = false) {
   if (!dnsActive && !force) { return; }
+  pingAllPendingPis();
+  if (Date.now() - bonjourStartMs < dnsWarmupMs) { dbg.warn("warming up dns"); return; }
   const curD = new Date();
   const toRm = {} as typeof model.availableRPI
   for (const [k, v] of Object.entries(model.availableRPI)) {
-    if ((curD.getTime() - v.lastT.getTime()) >= pingInterval + 10000) {
+    if ((curD.getTime() - v.lastT.getTime()) >= pingInterval + 5000) {
       dbg.warn('disconnected', k, (curD.getTime() - v.lastT.getTime()))
       const old = model.availableRPI[k];
       toRm[k] = old;
@@ -169,55 +172,49 @@ function broadcastMDNS(query, force = false) {
     dbg.log("[dns] updateMDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
     query.update();
   }
-  //   }
-  // }
-  // else {
 
-  //   dbg.warn("uforce update MDNS", Object.values(model.availableRPI).map(pi => pi.uuid))
-
-  //   for (const s of Object.values(model.availableRPI)) {
-  //     (query as any)._removeService(s.service.fqdn);
-  //   }
-  //   query.update();
-  // }
 }
-// function pingAllPis() {
-//   const appFilePaths = appPaths.getConf();
-//   const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
-//   if (!dnsActive || !hasPingEnabled) { return; }
-//   dbg.log("[dns] [ping] >>>> start ping")
-//   const pingCfg = {
-//     timeout: pingTimeout,
-//   };
+function pingAllPendingPis() {
+  const appFilePaths = appPaths.getConf();
+  const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+  if (!dnsActive || !hasPingEnabled) { return; }
+  const pingCfg = {
+    timeout: pingTimeout,
+  };
 
+  let pendingPis = Object.values(model.getAvailablePis()).filter(p => knownDevices[p.uuid] === undefined);
+  pendingPis = pendingPis.filter(p => pendingPis.find(pp => pp.ip == p.ip))
+  if (!pendingPis.length) return;
+  dbg.log("[dns] [ping] >>>> start ping")
+  for (const s of Object.values(pendingPis)) {// Object.values(model.getAvailablePis())) {
+    (function (curPi) {
+      const host = curPi.ip
+      const hostName = curPi.deviceName
+      dbg.log(`[dns] [ping] will ping host ${hostName} (${host})`);
+      ping.sys.probe(host, (isAlive) => {
+        // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
+        // dbg.log(msg);
+        const resolvedPi = model.availableRPI[curPi.uuid]
+        if (isAlive) {
+          if (resolvedPi) { resolvedPi.lastT = new Date(); }
+          else {
+            dbg.warn("pi not registered but active")
+          }
+        }
+      }, pingCfg);
+    }(s))
+  }
 
-//   for (const s of Object.values(knownDevices)) {// Object.values(model.getAvailablePis())) {
-//     (function (curPi) {
-//       const host = curPi.ip
-//       const hostName = curPi.deviceName
-//       dbg.log(`[dns] [ping] will ping host ${hostName} (${host})`);
-//       ping.sys.probe(host, (isAlive) => {
-//         // var msg = `[ping] host ${hostName} (${host})` + (isAlive ? ' is alive' : ' is dead');
-//         // dbg.log(msg);
-//         const resolvedPi = model.availableRPI[curPi.uuid]
-//         if (isAlive) {
-//           if (resolvedPi) { resolvedPi.lastT = new Date(); }
-//           else {
-//             dbg.warn("pi not registered but active")
-//           }
-//         }
-//       }, pingCfg);
-//     }(s))
-//   }
-
-// }
+}
 
 let bonjour;
+let bonjourStartMs = 0;
 export function listenDNS(): Model {
   console.log(">>>>>>>>>>>>>>>>>start listening Piiii")
   lastIFs = getIPAddresses();
   if (bonjour) bonjour.destroy()
 
+  bonjourStartMs = Date.now();
   const mdnsOpts = {
     // interface: undefined,
     ttl: 6, // set the multicast ttl
@@ -241,11 +238,11 @@ export function listenDNS(): Model {
       // uuid = [service.name, service.port].join('_');
     }
     if (!model.availableRPI[uuid]) {
-      model.availableRPI[uuid] = { service: service, lastT: new Date(), uuid }
+      model.availableRPI[uuid] = { service: service, lastT: new Date(Date.now() + 30 * 1000), uuid }
       dbg.warn('Found a Raspestrio endpoint:', uuid)
       dbg.log(JSON.stringify(service))
       dbg.log(JSON.stringify(model.getPiForUUID(uuid)))
-      model.emit("open", uuid)
+      model.emit("open", uuid) //
     }
     else {
       dbg.log('MDNSResp for :', uuid)

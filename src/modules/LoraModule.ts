@@ -11,9 +11,11 @@ import { LoraDevice, LoraDeviceFile, LoraDeviceArray, validateLoraDevices, LoraD
 import unix from "unix-dgram"
 import fs from 'fs'
 import * as lora from './LoraModuleHelpers'
+import * as loraHelp from './LoraStructHelpers'
 import * as Express from 'express'
 import { Groups, dateToStr } from '../types';
 import * as zlib from 'zlib';
+import { createHash } from 'crypto'
 
 
 function getKnownLoraDevices(): LoraDeviceArray {
@@ -32,14 +34,14 @@ function getKnownDeviceForUuid(uuid): LoraDevice {
 function getGroupForLoraDevice(curDev: LoraDevice) {
     const fullDescStr = JSON.stringify(curDev);
     if (!curDev) {
-        dbg.error('[app] onLoraPong no known device for ', fullDescStr)
+        // dbg.error('[app]  no known device for ', fullDescStr)
         return;
     }
     const appFilePaths = appPaths.getConf();
     const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {}) as Groups
     const curGroupObj = groups[curDev.group]
     if (!curGroupObj) {
-        dbg.error('[app] onLoraPong no known group for  ignore checking agenda', fullDescStr)
+        // dbg.error('[app]  no known group for  ignore checking agenda', fullDescStr)
         return;
     }
 
@@ -47,13 +49,45 @@ function getGroupForLoraDevice(curDev: LoraDevice) {
 }
 
 
+export function getAgendaForUuid(uuid: number) {
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownLoraDevicesFile) || {}) as LoraDeviceFile
+    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {}) as Groups
+    const fullDescStr = JSON.stringify(LoraDeviceInstance.getDescFromUuid(uuid));
+    const curDev = knownDevices.find(d => LoraDeviceInstance.getUuid(d) == uuid)
+    if (!curDev) {
+        dbg.error('[app] onLoraPong no known device for ', fullDescStr)
+        return;
+    }
+
+    const curGroupObj = groups[curDev.group]
+    if (!curGroupObj) {
+        dbg.error('[app] onLoraPong no known group for  ignore checking agenda', fullDescStr)
+        return;
+    }
+
+    let agendaName = curGroupObj.agendaFileName
+    if (!agendaName.endsWith('.json')) agendaName += '.json'
+    const agendaPath = appFilePaths.agendasFolder + "/" + agendaName
+    if (!fs.existsSync(agendaPath)) {
+        dbg.error('[app] onLoraPong no known path for agenda', agendaPath)
+        return;
+    }
+    let isAgendaInSync = false;//Math.random() > .5 ? true : false;
+    try {
+        return fs.readFileSync(agendaPath).toString()
+    } catch (e) {
+        console.error("can't check agenda on lora dev", fullDescStr, e);
+    }
+}
+
 function getAgendaMsgForName(agendaName: string): string {
     const appFilePaths = appPaths.getConf();
 
     if (!agendaName.endsWith('.json')) agendaName += '.json'
     const agendaPath = appFilePaths.agendasFolder + "/" + agendaName
     if (!fs.existsSync(agendaPath)) {
-        dbg.error('[app] checkEndpointAgendaIsUpToDate no known path for agenda')
+        dbg.error('[app] getAgendaMsgForName no known path for agenda')
         return;
     }
     const data = fs.readFileSync(agendaPath).toString()
@@ -65,88 +99,9 @@ function getAgendaMsgForName(agendaName: string): string {
     }
 }
 
-class FileRcvT {
-    parts = new Array<Buffer>()
-    expectedMsg = -1;
 
-    isValidState() {
-        if (this.expectedMsg != this.parts.length) {
-            dbg.error("expect mismatches", this.expectedMsg, this.parts.length)
-            return false;
-        }
-        if (this.expectedMsg == 0) {
-            dbg.error("nothing expected")
-            return false;
-        }
-
-        return true;
-    }
-    start(numMsg: number) {
-        this.parts = new Array<Buffer>()
-        this.parts.length = numMsg
-        this.expectedMsg = numMsg
-    }
-    ignore() {
-        this.expectedMsg = 0;
-    }
-    isIgnoring() {
-        return this.expectedMsg == 0;
-    }
-
-    hasAll() {
-        if (!this.isValidState())
-            return false;
-        for (const o of this.parts)
-            if (!o || o.length == 0)
-                return false;
-        return true;
-    }
-    collect() {
-        if (!this.isValidState())
-            return false;
-        let resStr = "";
-        for (const o of this.parts) {
-            if (!o || o.length == 0) {
-                dbg.error("invalid when collecting");
-                return;
-            }
-            resStr += o.toString('utf-8');
-        }
-        resStr.trim()
-        return resStr;
-    }
-
-    addPart(n: number, buf: Buffer, offset: number) {
-        if (!this.isValidState())
-            return;
-        this.parts[n] = buf.slice(offset);
-        if (this.hasAll())
-            return this.collect()
-    }
-
-    getMissingIds() {
-        const res = []
-        if (!this.isValidState())
-            return res;
-        let i = 0;
-        for (const o of this.parts) {
-            if (!o || o.length == 0) {
-                res.push(i)
-            }
-            i++
-        }
-        return res;
-    }
-
-    cleanUp() {
-        this.expectedMsg = 0
-    }
-
-
-
-}
-
-const FileRcv = new FileRcvT();
+const FileRcv = new loraHelp.FileRcvT();
+const pingableList = new loraHelp.PingableList();
 class LoraModule extends lora.LoraSockIface {
 
 
@@ -154,7 +109,7 @@ class LoraModule extends lora.LoraSockIface {
     knownDevicesWatcher: ConfFileWatcher;
     public state: LoraState;
     isMasterServer() { return this.state.isMasterClock };
-    public isSendingPing = false;
+    public isSendingPing = true;
     public loraIsDisablingWifi = true;
     public confFile = appPaths.getConf().baseDir + "/lora.json"
     public knownDevicesFile = appPaths.getConf().baseDir + "/knownLoraDevices.json"
@@ -213,7 +168,7 @@ class LoraModule extends lora.LoraSockIface {
 
     constructor() {
         super()
-        const num = parseInt(sys.getHostName().replace("lumestrio", ""))
+        const num = parseInt(sys.getHostName().replace("lumestrio", "").replace("_", "").replace(" ", ""))
         this.uuid = LoraDeviceInstance.buildUuid(num, LoraDeviceType.Lumestrio);
         dbg.warn("[lora] has uuid of ", this.uuid);
         this.confWatcher = new ConfFileWatcher(this.confFile, obj => { this.parseConf(obj) }, new DefaultLoraState());
@@ -258,7 +213,16 @@ class LoraModule extends lora.LoraSockIface {
 
 
     // Pings
+
+
+    setPingableState(uuid: number, v: boolean) {
+        if (pingableList.setPingable("" + uuid, v) || !this.pingSyncTimeout) {
+            this.sendOnePingMsg();
+        }
+    }
+
     scheduleNextPingMsg() {
+        pingableList.removeOldOnes();
         if (!this.isServer) return;
         const nextTimeout = this.state.pingUpdateIntervalSec >>> 0
         // dbg.log("[lora] master Clock scheduling next", nextTimeout)
@@ -271,31 +235,42 @@ class LoraModule extends lora.LoraSockIface {
         this.pingSyncTimeout = setTimeout(this.sendOnePingMsg.bind(this), nextTimeout * 1000)
     }
     shouldSendAgendaInPong() {
-        return this.loraIsCheckingAgendas || this.loraIsSyncingAgendas;
+        return this.loraIsCheckingAgendas
+    }
+
+    shouldSendMissingPartInPong() {
+        return this.loraIsSyncingAgendas;
     }
 
     sendOnePingMsg(oneShot = false) {
         if (!this.isServer) return;
 
-        if (!oneShot && (!this.state.isActive || !this.isSendingPing)) {
+        // send
+        const toPing = new Array<LoraDeviceInstance>()
+        pingableList.getKeys().map(k => {
+            const n = parseInt(k)
+            const d = this.getLoraDeviceFromUuid(n)
+            if (d) toPing.push(d)
+            else { console.error("not found pingable", k) }
+        })
+        if (!oneShot && !toPing.length && (!this.state.isActive || !this.isSendingPing)) {
             dbg.error("[lora] should not send ping stopping...");
             clearTimeout(this.pingSyncTimeout)
             this.pingSyncTimeout = null
             return
         }
-        // send
 
 
-        if (this.knownLoraDevices?.length && (!this.disablePing || oneShot)) {
+        if (toPing.length && (!this.disablePing || oneShot)) {
             dbg.log("[lora] sending message ping")
             let numInPing = getNumInPing(this.state.pingUpdateIntervalSec * 1000);
-            numInPing = Math.min(numInPing, this.knownLoraDevices.length)
+            numInPing = Math.min(numInPing, toPing.length)
             // dbg.log("[lora] numSlotsForPing ", numInPing)
             this.currentTstUids = new Array<number>();
             const startPingMs = Date.now();
             for (let i = 0; i < numInPing; i++) {
-                this.currentPingIdx = (this.currentPingIdx + 1) % this.knownLoraDevices.length
-                const dev = this.knownLoraDevices[this.currentPingIdx];
+                this.currentPingIdx = (this.currentPingIdx + 1) % toPing.length
+                const dev = toPing[this.currentPingIdx];
                 if (!dev) {
                     dbg.error("[lora] device not found for ", this.currentPingIdx)
                 }
@@ -306,7 +281,12 @@ class LoraModule extends lora.LoraSockIface {
                 }
             }
             const centiSec = Math.ceil(minDelayForResp / 10);
-            const prelude = [this.getAgendaDisabled() ? 1 : 0, this.shouldSendAgendaInPong() ? 1 : 0, this.loraIsDisablingWifi ? 1 : 0];
+            let pingType = 0
+            if (this.shouldSendMissingPartInPong())
+                pingType = 2;
+            else if (this.shouldSendAgendaInPong())
+                pingType = 1
+            const prelude = [this.getAgendaDisabled() ? 1 : 0, pingType, this.loraIsDisablingWifi ? 1 : 0];
             const pingMsg = createBufferMessageType(MessageType.PING, Buffer.from([...prelude, centiSec, ...this.currentTstUids]));
             this.lastPingSentTime = new Date().getTime()
             this.sendBufToLora(pingMsg)
@@ -314,15 +294,21 @@ class LoraModule extends lora.LoraSockIface {
 
         if (!isPi) // local tests
         {
-            const pongChain = () => {
-                const pongUuid = this.currentTstUids.shift();
+            for (let i = 0; i < this.currentTstUids.length; i++) {
+                const pongUuid = this.currentTstUids[i]
                 if (pongUuid) {
+                    let pongMsg = Buffer.from([MessageType.PONG, pongUuid, false])
+                    if (this.shouldSendAgendaInPong()) {
+                        const agContent = getAgendaForUuid(pongUuid)
+                        const minObj = JSON.stringify(JSON.parse(agContent), null, 0)
+                        let hash = createHash('md5').update(minObj).digest("hex")
+                        pongMsg = Buffer.concat([pongMsg, Buffer.from(hash), Buffer.from([0])])
+                    }
                     setTimeout(() => {
-                        this.processLoraMsg(Buffer.from([MessageType.PONG, pongUuid, false]))
-                    }, 1000);
+                        this.processLoraMsg(pongMsg)
+                    }, i * minDelayForResp);
                 }
             }
-            pongChain();
 
 
         }
@@ -395,6 +381,10 @@ class LoraModule extends lora.LoraSockIface {
         for (const d of allKnowns) {
             const uuid = LoraDeviceInstance.getUuid(d);
             const group = getGroupForLoraDevice(d);
+            if (!group) {
+                dbg.error("ignoring lora dev without group", d.deviceType, d.deviceNumber);
+                continue
+            }
             const agName = group.agendaFileName
             if (!agendasToSend[agName])
                 agendasToSend[agName] = new Array();
@@ -440,6 +430,8 @@ class LoraModule extends lora.LoraSockIface {
             } else {
                 const re = new RegExp(`.{1,${partSize}}`, 'g');
                 msgParts = agStr.match(re);
+                if (!msgParts)
+                    msgParts = []
                 // msgParts = ['{"l":1}']
             }
             dbg.warn("will send file", nextAgName, " with ", msgParts.length, "parts")
@@ -566,10 +558,10 @@ class LoraModule extends lora.LoraSockIface {
     }
 
     processLoraMsg(buf: Buffer) {
-        dbg.log("[lora] new msg");
         if (buf.length === 0) { dbg.error("[lora] rcvd empty msg"); return }
 
         const headByte = buf[0]
+        dbg.log("[lora] new msg", headByte);
         if (headByte == MessageType.SYNC) {
 
             const strToSend = dateStrFromBuffer(buf, 1);
@@ -587,6 +579,7 @@ class LoraModule extends lora.LoraSockIface {
             curIdx++;
             const pingType = buf[curIdx]
             const sendAgendaMD5 = pingType == 1;
+            const sendAgendaMissingParts = pingType == 2;
             curIdx++;
             const disableWifi = buf[curIdx] // ignored for raspberrys
             curIdx++;
@@ -605,9 +598,9 @@ class LoraModule extends lora.LoraSockIface {
                     let pongB = Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]);
                     if (sendAgendaMD5) {
                         pongB = Buffer.concat([pongB, Buffer.from(this.getAgendaMD5()), Buffer.from([0])])
-                        if (FileRcv.expectedMsg > 0)
-                            pongB = Buffer.concat([pongB, Buffer.from(FileRcv.getMissingIds())])
                     }
+                    if (sendAgendaMissingParts && FileRcv.expectedMsg > 0)
+                        pongB = Buffer.concat([pongB, Buffer.from(FileRcv.getMissingIds())])
                     dbg.log("[lora] got ping send pong delayed :", delay, pongB)
                     setTimeout(() => {
                         this.sendBufToLora(pongB)
@@ -636,19 +629,22 @@ class LoraModule extends lora.LoraSockIface {
                 else {
                     dbg.error("[lora] ping from uknown pi", LoraDeviceInstance.getDescFromUuid(uuid))
                     dbg.error("    ", this.knownLoraDevices);
+                    return;
                 };
-                let agendaMD5 = "";
-                if (buf.length > 4) {
-                    dbg.warn("bbl", buf.length)
-                    let { res, remaining } = readUntilNull(buf, 3);
-                    agendaMD5 = strFromBuffer(res)
-                    dbg.warn("got md5 ", agendaMD5, agendaMD5.length, "bl", res.length)
-                    if (knownPinged) {
+                if (this.shouldSendMissingPartInPong()) {
+                    knownPinged._missingFileParts = Array.from(buf.slice(3));
+                    dbg.warn("got remaining part missing ", knownPinged._missingFileParts)
+                }
+                let agendaMD5 = knownPinged._lastAgendaMD5;
+                if (this.shouldSendAgendaInPong()) {
+                    if (buf.length > 4) {
+                        dbg.warn("bbl", buf.length)
+                        let { res, remaining } = readUntilNull(buf, 3);
+                        agendaMD5 = strFromBuffer(res)
+                        dbg.warn("got md5 ", agendaMD5, agendaMD5.length, "bl", res.length)
                         if (agendaMD5)
                             knownPinged._lastAgendaMD5 = agendaMD5
                         agendaMD5 = knownPinged._lastAgendaMD5
-                        knownPinged._missingFileParts = [...Array.from(remaining)]
-                        dbg.warn("got remaining part missing ", knownPinged._missingFileParts)
                     }
                 }
 
@@ -659,12 +655,15 @@ class LoraModule extends lora.LoraSockIface {
             // if (this.triggerAckCb) this.triggerAckCb();
         }
         else if (headByte == MessageType.ACTIVATE) {
-            const uuid = buf[1]
-            const data = buf[2]
-            if ((uuid == this.uuid) || (uuid == 255))
+            const data = buf[1]
+            let found = -1;
+            for (let i = 2; i < buf.length; i++) {
+                if (buf[i] == this.uuid || buf[i] == 255) { found = buf[i]; }
+            }
+            if (found != -1)
             {
                 this.onActivate.map(fn => fn(!!data));
-                if (this.isEndpoint && !this.isMasterServer() && (uuid != 255))
+                if (this.isEndpoint && !this.isMasterServer() && (found != 255))
                     this.sendBufToLora(Buffer.from([MessageType.PONG, this.uuid, this.getActiveState()]))
             }
 
@@ -716,7 +715,7 @@ class LoraModule extends lora.LoraSockIface {
         } else
             dev._pingTimeWithOffset = new Date()
 
-        this.sendBufToLora(Buffer.from([MessageType.ACTIVATE, uuid, b]))
+        this.sendBufToLora(Buffer.from([MessageType.ACTIVATE, b, uuid]))
 
     }
 

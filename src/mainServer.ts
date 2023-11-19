@@ -1,7 +1,7 @@
 import { startServer } from './server'
 import { listenDNS, advertiseServerDNS, PiConInfo, setDNSActive } from './dns'
 import { startWS } from './wsServer'
-import LoraModule from './modules/LoraModule';
+import LoraModule, { getAgendaForUuid } from './modules/LoraModule';
 import * as appPaths from './filePaths'
 import fs from 'fs'
 import http from 'http'
@@ -16,6 +16,7 @@ import _ from 'lodash'
 import { dateToStr } from './types';
 import { LoraDeviceInstance, LoraDeviceFile } from './types/LoraDevice';
 import { createHash } from 'crypto'
+import { isPi } from './platformUtil';
 
 let isInaugurationMode = false;
 
@@ -27,6 +28,11 @@ function getKnownPis() {
   return Object.values(pis);
 }
 
+function getKnownPiForUuid(uuid) {
+  const appFilePaths = appPaths.getConf();
+  const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+  return knownDevices[uuid];
+}
 
 export function cleanShutdown() {
   // do nothing 
@@ -64,36 +70,16 @@ export function startMainServer(serverReadyCb) {
   LoraModule.onPong.push((time: number, uuid: number, activeState: number, agendaMd5: string) => {
     console.log("[lora] got pong, round trip of", time, uuid, activeState)
     if (!LoraModule.isSendingPing) return;
-    const appFilePaths = appPaths.getConf();
-    const knownDevices = (appPaths.getFileObj(appFilePaths.knownLoraDevicesFile) || {}) as LoraDeviceFile
-    const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {}) as Groups
+    const agendaContent = getAgendaForUuid(uuid)
+    if (!agendaContent) { console.error("can not find agenda fot", uuid); return; }
     const fullDescStr = JSON.stringify(LoraDeviceInstance.getDescFromUuid(uuid));
-    const curDev = knownDevices.find(d => LoraDeviceInstance.getUuid(d) == uuid)
-    if (!curDev) {
-      dbg.error('[app] onLoraPong no known device for ', fullDescStr)
-      return;
-    }
 
-    const curGroupObj = groups[curDev.group]
-    if (!curGroupObj) {
-      dbg.error('[app] onLoraPong no known group for  ignore checking agenda', fullDescStr)
-      return;
-    }
-
-    let agendaName = curGroupObj.agendaFileName
-    if (!agendaName.endsWith('.json')) agendaName += '.json'
-    const agendaPath = appFilePaths.agendasFolder + "/" + agendaName
-    if (!fs.existsSync(agendaPath)) {
-      dbg.error('[app] onLoraPong no known path for agenda', agendaPath)
-      return;
-    }
     let isAgendaInSync = false;//Math.random() > .5 ? true : false;
     try {
-      const content = fs.readFileSync(agendaPath).toString()
-      const minObj = JSON.stringify(JSON.parse(content), null, 0)
+      const minObj = JSON.stringify(JSON.parse(agendaContent), null, 0)
       let hash = createHash('md5').update(minObj).digest("hex").trim()
       isAgendaInSync = hash == agendaMd5.trim()
-      if (!isAgendaInSync) {
+      if (!isAgendaInSync && LoraModule.loraIsCheckingAgendas) {
         dbg.error("pong out of sync ", hash, "vs", agendaMd5.trim())
       }
     } catch (e) {
@@ -116,7 +102,7 @@ export function startMainServer(serverReadyCb) {
     const appFilePaths = appPaths.getConf();
     const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
     const knownPi = knownDevices[pi.uuid];
-    if (!knownPi) { dbg.log("pi known up to date"); return; }
+    if (!knownPi) { dbg.log("can not update unknown pi"); return false; }
     const props = ['ip', 'port', 'caps', 'deviceName']
     let change = false;
     props.map(p => {
@@ -129,20 +115,25 @@ export function startMainServer(serverReadyCb) {
     if (change) {
       appPaths.writeFileObj(appFilePaths.knownDevicesFile, knownDevices)
     }
+    return true
   }
   pis.on("open", async (piUuid) => {
     dbg.log("newPI", piUuid)
     const pi = pis.getPiForUUID(piUuid)
+    let registredPi = getKnownPiForUuid(pi.uuid);
     if (pi) {
       updateKnownPi(pi)
     }
     else
       dbg.error("no pi found iwhen opening")
-    sendToPi(pi, "/activate", [])
+
+    if (registredPi)
+      sendToPi(pi, "/activate", [])
 
 
     wsServer.broadcast({ type: "connectedDeviceList", data: pis.getAvailablePis() })
-    await checkEndpointUpToDate(pi);
+    if (registredPi)
+      await checkEndpointUpToDate(pi);
 
 
   })
@@ -164,7 +155,9 @@ export function startMainServer(serverReadyCb) {
       return;
     }
     const { addr, args } = msg;
-    if (!(addr === "deviceEvent" && args.event && args.event.type === "rssi")) {
+    if (!(addr === "deviceEvent" && args.event && args.event.type === "rssi")
+      && !(args?.type == 'keepPingingDevice')
+    ) {
       dbg.log('[wsServer] Received Message: ' + addr + JSON.stringify(msg));
     }
     if (addr == "deviceEvent") {
@@ -232,11 +225,11 @@ export function startMainServer(serverReadyCb) {
           wsServer.sendTo(ws, { type: "loraIsDisablingWifi", data: LoraModule.loraIsDisablingWifi })
         }
       }
-      else if (args.type === "loraIsSendingPing") {
-        LoraModule.isSendingPing = !!args.value
-        if (LoraModule.isSendingPing)
-          LoraModule.sendOnePingMsg(); // will schedule nexts
-      }
+        // else if (args.type === "loraIsSendingPing") {
+        //   LoraModule.isSendingPing = !!args.value
+        //   if (LoraModule.isSendingPing)
+        //     LoraModule.sendOnePingMsg(); // will schedule nexts
+        // }
       else if (args.type === "loraIsSyncingAgendas") {
         LoraModule.loraIsSyncingAgendas = !!args.value
         if (LoraModule.loraIsSyncingAgendas)
@@ -250,8 +243,12 @@ export function startMainServer(serverReadyCb) {
       else if (args.type === "loraIsDisablingWifi") {
         LoraModule.loraIsDisablingWifi = !!args.value
       }
+        // per device
       else if (args.type === "activate") {
         LoraModule.sendActivate(!!args.value?.isActive, LoraDeviceInstance.getUuid(args.value.device))
+      }
+      else if (args.type === "keepPingingDevice") {
+        LoraModule.setPingableState(LoraDeviceInstance.getUuid(args.value.device), !!args.value.shouldPing)
       }
       else {
         dbg.error('[wsServer] unknown lora msg', args);
@@ -279,7 +276,7 @@ export function startMainServer(serverReadyCb) {
       }
     }
     else {
-      dbg.error("msg from unknown pi", info.address, info)
+      dbg.error("msg from unknown pi", info.address, msg)
     }
   }
 
@@ -341,7 +338,7 @@ export function startMainServer(serverReadyCb) {
     const groups = (appPaths.getFileObj(appFilePaths.groupFile) || {}) as Groups
     const curDev = knownDevices[p.uuid]
     if (!curDev) {
-      dbg.error('[app] checkEndpointAgendaIsUpToDate no known device for pi', p.uuid || p)
+      dbg.error('[app] checkEndpointAgendaIsUpToDate no known device for pi', p.uuid, "::", p)
       return;
     }
 
@@ -359,11 +356,20 @@ export function startMainServer(serverReadyCb) {
       return;
     }
     const data = fs.readFileSync(agendaPath).toString()
+    let dataObj;
+    try {
+      dataObj = JSON.parse(data);
+
+    } catch (e) {
+      console.error("can't read agenda to set for pi", p.deviceName, agendaPath, e);
+    }
+    if (dataObj) {
     try {
       return await checkRemoteResource(p, "/agendaFile", JSON.parse(data));
 
     } catch (e) {
       console.error("can't check agenda on pi", p.deviceName, e);
+    }
     }
     return undefined;
 
@@ -441,7 +447,8 @@ export function startMainServer(serverReadyCb) {
     let res;
     for (const c of getKnownPis()) {
       try {
-        res ||= (await checkEndpointUpToDate(c)) == true
+        const isUpToDate = (await checkEndpointUpToDate(c)) == true
+        res ||= isUpToDate
       } catch (e) {
         dbg.error("trying to update ep", e)
       }
@@ -464,7 +471,7 @@ export function startMainServer(serverReadyCb) {
       checkAgendaDisabledOnPis();
       dbg.error("force disabling agenda ")
     }
-    dbg.warn('inauguration set to ' + isInaugurationMode ? 'on' : 'off');
+    dbg.warn('inauguration set to ' + (isInaugurationMode ? 'on' : 'off'));
 
     const sendAll = () => {
       for (const p of getKnownPis()) {

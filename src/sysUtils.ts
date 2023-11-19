@@ -17,6 +17,15 @@ export function getHostName() {
 }
 
 
+export function getMountedSDCardName() {
+    if (isOSX)
+        return "L2"
+    else {
+        const l = execSync('ls -l /dev/disk/by-label/  | grep " -> ../../mmcblk0p2" | awk "END { print $9 }"').toString();
+        return l;
+    }
+}
+
 export function setHostName(newhost: string) {
     dbg.warn('hostname will be set to', newhost)
     if (!isPi) {
@@ -30,8 +39,8 @@ export function setHostName(newhost: string) {
     uConf.setRW(true);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hosts`);
     execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /etc/hostname`);
-    if (fs.existsSync("/boot/hostname"))
-        execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /boot/hostname`);
+    if (fs.existsSync("/boot/hostname.txt"))
+        execSync(`sudo sed -i "s/${hostn}/${newhost}/g" /boot/hostname.txt`);
     uConf.setRW(false);
 }
 
