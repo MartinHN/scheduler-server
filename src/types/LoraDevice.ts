@@ -15,6 +15,7 @@ export interface LoraDevice {
   _isActive: boolean
   _lastSeen: Date
   _isAgendaInSync: boolean
+  _targetActiveLoraValue: null | boolean
   _missingFileParts: Array<number>
 }
 
@@ -41,6 +42,7 @@ export class LoraDeviceInstance implements LoraDevice {
   _lastSeen = new Date(0)
   _pingTimeWithOffset = new Date(0)
   _lastAgendaMD5 = ""
+  _targetActiveLoraValue = null
 
   static buildUuid(num: number, type: number) {
     return num + maxDevicePerType * type
@@ -50,11 +52,23 @@ export class LoraDeviceInstance implements LoraDevice {
     return LoraDeviceInstance.buildUuid(o.deviceNumber, o.deviceType)
   }
 
+  static getShortName(o: LoraDevice) {
+    let res = ""
+    if (o.deviceType == LoraDeviceType.Relaystrio)
+      res += "R"
+    else if (o.deviceType == LoraDeviceType.Lumestrio)
+      res += "L"
+    else
+      res += "??"
+    res += o.deviceNumber
+    return res
+  }
+
   static getDescFromUuid(uuid: number) {
     uuid = uuid >>> 0
     return { type: Math.floor(uuid / maxDevicePerType), num: uuid % maxDevicePerType }
   }
-  static create(o: any) {
+  static create(o: any, keepMetaData = false) {
     const res = new LoraDeviceInstance()
     if (!o) { console.error("can not create lora device"); return res }
     validateLoraDevice(o, true)
@@ -62,6 +76,12 @@ export class LoraDeviceInstance implements LoraDevice {
     res.deviceNumber = o.deviceNumber >>> 0
     res.deviceName = o.deviceName || "no name"
     res.group = o.group || ""
+    if (keepMetaData) {
+      for (const pn of Object.getOwnPropertyNames(o))
+        if (pn.startsWith("_")) {
+          res[pn] = o[pn]
+        }
+    }
     return res;
   }
 }

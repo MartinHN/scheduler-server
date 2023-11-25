@@ -116,6 +116,7 @@ export function advertiseServerDNS() {
 
   // advertise an HTTP server 
   bonjour.publish({ name: hostname(),/* host: 'tinmar.local',*/ type: 'http', protocol: 'tcp', port: conf.serverPort })
+
   // next line if androidjs
   // bonjour.publish({ name: hostname(), /* host:'tinmar.local', */type: 'lumestrioMaster', protocol: 'tcp', port: conf.serverPort })
 

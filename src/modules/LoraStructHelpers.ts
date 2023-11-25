@@ -3,28 +3,39 @@ export class PingableList {
 
     keepAliveMs = 10000
     setPingable(uuid: string, b: boolean) {
-        if (!b)
-            console.log("stop pinging", uuid, b)
+        const isFirst = (this.getKeys().length === 0)
+        if (!this.getKeys().includes(uuid) && b)
+            console.log("start pinging", uuid, ", total ", this.getKeys().length)
+        else if (!b)
+            console.log("stop pinging", uuid, ", total ", this.getKeys().length)
         if (!b) {
             this.remove(uuid)
             return;
         }
-        const isFirst = Object.keys(this.records).length = 0
         this.records[uuid] = Date.now()
         return isFirst
     }
 
     remove(uuid: string) {
+        console.warn("removing ", uuid)
         delete this.records[uuid]
     }
 
     getKeys() {
-        return Object.keys(this.records)
+        return Array.from(Object.keys(this.records))
     }
 
     removeOldOnes() {
         const now = Date.now()
-        this.records = Object.fromEntries(Object.entries(this.records).filter(([_, d]) => now - d > this.keepAliveMs))
+        const lastKeys = this.getKeys();
+        const keys = Array.from(Object.keys(this.records))
+        for (const k of keys) {
+            if (now - this.records[k] > this.keepAliveMs)
+                delete this.records[k]
+        }
+        if (lastKeys.length != this.getKeys().length) {
+            console.warn("removed old", lastKeys.filter(d => !this.getKeys().includes(d)))
+        }
     }
 }
 

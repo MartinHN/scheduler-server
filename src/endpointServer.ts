@@ -19,13 +19,13 @@ import * as sys from './sysUtils'
 import { willBeRunningForDate, getAgenda, startSchedule, getAgendaShouldActivate } from './schedule'
 import { Looper } from './lib/Looper'
 
-import { isPi, isOSX } from './platformUtil'
+import { isPi, isOSX, isAndroid } from './platformUtil'
 import { getIpOfInterface } from './lib/networkUtils'
 import { createHash } from 'crypto'
 
 
 // this is the interface name of desired multicast of service (more stable if specified and multiple interfaces are present)
-const targetIf = isPi ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
+const targetIf = (isPi || isAndroid) ? "wlan0" : (isOSX ? "en0" : "wlp0s20f3") //wlp0s20f3
 
 
 const app = express();
@@ -235,11 +235,16 @@ function initModules() {
 }
 let isActive = false
 
+const looperEnabled = false
 let looper = new Looper()
-looper.onLoopBegin = () => { sendStartOrStopMessage(true, true) }
+if (looperEnabled) {
+  looper.onLoopBegin = () => {
+    sendStartOrStopMessage(true, true)
+  }
+}
 
 function sendStartOrStopMessage(active, playOnce = false) {
-  if (playOnce && active) {
+  if (looperEnabled && playOnce && active) {
     audioPlayer.playOnce()
   }
   else
@@ -256,7 +261,7 @@ function sendStartOrStopMessage(active, playOnce = false) {
 function activate(active: boolean, forceNow = false) {
 
   isActive = active
-  if (looper.loopTimeMs > 0) {
+  if (looperEnabled && (looper.loopTimeMs > 0)) {
     looper.setIsPlaying(isActive, isActive && forceNow);
     if (!isActive) { sendStartOrStopMessage(false) }
   }
@@ -265,6 +270,28 @@ function activate(active: boolean, forceNow = false) {
   }
 }
 
+function doActivateAutoLoop(shouldActivate) {
+  const now = new Date().getTime();
+  const isRedundant = (shouldActivate == isActive) || (Math.abs(now - lastActivateMsgTime) < 1000)
+  if (shouldActivate == isActive) lastActivateMsgTime = now
+  else lastActivateMsgTime = -1
+  if (!isRedundant)
+    activate(shouldActivate, true)
+}
+
+function doSetAgendaDisabled(a) {
+  isAgendaDisabled = a !== "0" && !!a
+  console.log("isAgendaDisabled = ", isAgendaDisabled)
+  if (!isAgendaDisabled) {
+    const shouldAct = !!getAgendaShouldActivate();
+    if (shouldAct !== isActive) {
+      // mimic exact same timing than when agenda started normaly
+      adaptLooperStateFromAgendaEvent();
+      looper.offsetWithGlobalTimeMs = 0;
+      activate(shouldAct, false)
+    }
+  }
+}
 // lora
 
 LoraModule.getActiveState = () => {
@@ -282,16 +309,16 @@ LoraModule.getAgendaMD5 = () => {
   }
   return ""
 }
-LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; }
+if (!LoraModule.isServer) { LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; } }
 
 LoraModule.onActivate.push((b: boolean) => {
   dbg.log("enpoint got lora activate message ", b ? "1" : "0")
-  activate(b)
+  doActivateAutoLoop(b);
 })
 
 LoraModule.onDisableAgenda.push((b: boolean) => {
   dbg.log("enpoint got disable agenda ", b ? "1" : "0")
-  isAgendaDisabled = b;
+  doSetAgendaDisabled(b);
 })
 
 LoraModule.onNewFile.push(async (data: string) => {
@@ -367,11 +394,7 @@ function handleMsg(msg, time, info: { address: string, port: number }) {
     if (msg.args.length > 0) {
       const now = new Date().getTime();
       const shouldActivate = msg.args[0] ? true : false;
-      const isRedundant = (shouldActivate == isActive) || (Math.abs(now - lastActivateMsgTime) < 1000)
-      if (shouldActivate == isActive) lastActivateMsgTime = now
-      else lastActivateMsgTime = -1
-      if (!isRedundant)
-        activate(shouldActivate, true)
+      doActivateAutoLoop(shouldActivate);
     }
     else
       epOSC.send("/activate", [isActive ? 1 : 0], info.address, info.port)
@@ -386,17 +409,7 @@ function handleMsg(msg, time, info: { address: string, port: number }) {
     if (msg.args.length === 1) {
       const a = msg.args[0]
 
-      isAgendaDisabled = a !== "0" && !!a
-      console.log("isAgendaDisabled = ", isAgendaDisabled)
-      if (!isAgendaDisabled) {
-        const shouldAct = !!getAgendaShouldActivate();
-        if (shouldAct !== isActive) {
-          // mimic exact same timing than when agenda started normaly
-          adaptLooperStateFromAgendaEvent();
-          looper.offsetWithGlobalTimeMs = 0;
-          activate(shouldAct, false)
-        }
-      }
+      doSetAgendaDisabled(a)
     }
   }
   else if ((msg.address === "/dateShouldActivate")) {
@@ -490,7 +503,7 @@ function checkHostName() {
 
 
   // }
-  if (!fs.existsSync("/boot/hostname.txt")) {
+  if (isPi && !fs.existsSync("/boot/hostname.txt")) {
     uConf.setRW(true)
     console.warn(">>>>>>>>> setting random hostname")
     const randomName = "lumestrio" + parseInt("" + 100 + (Math.random() * 1000))
@@ -547,7 +560,7 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
       }
 
       dbg.warn("using iface >>>> " + ifaceIp)
-
+      ifaceIp = "" // so first query will update it
       if (bonjour) {
         const serv = (bonjour as any)._server;
         serv.mdns.off('query', serv._respondToQuery);
@@ -566,7 +579,16 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
         serv.mdns.removeAllListeners('query')
         serv.mdns.on('query',
           (query) => {
-            if (getIpOfInterface(targetIf) !== "") {
+            const curIp = getIpOfInterface(targetIf);
+            if (curIp !== "") {
+              if (ifaceIp != curIp) {
+                bonjour.unpublishAll();
+                dbg.warn("changed ip from ", ifaceIp, "to ", curIp, epConf.endpointName || hostname());
+                bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
+                ifaceIp = curIp;
+              }
+
+            // dbg.warn("mdns resp " + query)
               serv._respondToQuery(query);
             }
             else {
@@ -581,7 +603,7 @@ export function startEndpointServer(epConf: { endpointName?: string, endpointPor
       if (sys.getMac() === "unknown") {
         throw new Error("no mac available");
       }
-      bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
+      // bonjour.publish({ name: epConf.endpointName || hostname(), type: 'rspstrio', protocol: 'udp', port: epPort, txt: { uuid: "lumestrio@" + sys.getMac() + (hasCustomPort ? '' + epPort : ''), caps: "osc1=osc,osc2=osc,audio=html:8000,vermuth=html:3005" } })
 
     }
     catch (e) {

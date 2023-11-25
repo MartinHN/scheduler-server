@@ -6,7 +6,7 @@ import * as appPaths from './filePaths'
 import fs from 'fs'
 import http from 'http'
 import { OSCServerModule } from './lib/OSCServerModule'
-import { DeviceDic, Groups, newEmptyDevice } from './types/DeviceTypes'
+import { DeviceDic, Device, Groups, newEmptyDevice } from './types/DeviceTypes'
 import { postJSON } from './lib/HTTPHelpers'
 import * as dbg from './dbg'
 import * as sys from "./sysUtils"
@@ -14,15 +14,16 @@ import jdiff from 'json-diff';
 import chokidar from 'chokidar';
 import _ from 'lodash'
 import { dateToStr } from './types';
-import { LoraDeviceInstance, LoraDeviceFile } from './types/LoraDevice';
+import { LoraDeviceInstance, LoraDeviceFile, LoraDeviceArray, LoraDeviceType } from './types/LoraDevice';
 import { createHash } from 'crypto'
 import { isPi } from './platformUtil';
 
+import { setWsProxyCallback } from './modules/LoraModuleHelpers'
 let isInaugurationMode = false;
 
 let isAgendaDisabled = false;
 
-function getKnownPis() {
+function getKnownPis(): Array<Device> {
   const appFilePaths = appPaths.getConf();
   const pis = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
   return Object.values(pis);
@@ -43,11 +44,15 @@ export function startMainServer(serverReadyCb) {
   const { server, expressApp } = startServer(serverReadyCb)
   // to from web page
   const wsServer = startWS(server)
-
+  if (isPi) {
+    setWsProxyCallback((b: Buffer) => {
+      wsServer.broadcast({ addr: "loraMsg", args: b })
+    })
+  }
   //////////////
   // lora
   LoraModule.getActiveState = () => { return isInaugurationMode; }
-  LoraModule.getAgendaDisabled = () => { return isAgendaDisabled; }
+  LoraModule.getAgendaDisabled = () => { return !!isAgendaDisabled; }
 
   LoraModule.onTimeSync.push((strToSend: string) => {
     dbg.log("[main] got lora sync message for date", strToSend)
@@ -67,7 +72,7 @@ export function startMainServer(serverReadyCb) {
     wsServer.broadcast({ type: "isAgendaDisabled", data: !!b })
   })
 
-  LoraModule.onPong.push((time: number, uuid: number, activeState: number, agendaMd5: string) => {
+  LoraModule.onPong.push((time: number, uuid: number, activeState: number, miniAgMd5: string) => {
     console.log("[lora] got pong, round trip of", time, uuid, activeState)
     if (!LoraModule.isSendingPing) return;
     const agendaContent = getAgendaForUuid(uuid)
@@ -78,9 +83,9 @@ export function startMainServer(serverReadyCb) {
     try {
       const minObj = JSON.stringify(JSON.parse(agendaContent), null, 0)
       let hash = createHash('md5').update(minObj).digest("hex").trim()
-      isAgendaInSync = hash == agendaMd5.trim()
+      isAgendaInSync = miniAgMd5 && miniAgMd5.length >= 6 && hash.startsWith(miniAgMd5) 
       if (!isAgendaInSync && LoraModule.loraIsCheckingAgendas) {
-        dbg.error("pong out of sync ", hash, "vs", agendaMd5.trim())
+        dbg.error("pong out of sync ", hash, "vs", miniAgMd5.trim())
       }
     } catch (e) {
       console.error("can't check agenda on lora dev", fullDescStr, e);
@@ -160,7 +165,15 @@ export function startMainServer(serverReadyCb) {
     ) {
       dbg.log('[wsServer] Received Message: ' + addr + JSON.stringify(msg));
     }
-    if (addr == "deviceEvent") {
+    if (addr == "loraMsg") {
+      if (args.type == "Buffer" && args.data) {
+        LoraModule.sendBufToLora(Buffer.from(args.data))
+      }
+      else {
+        dbg.error("[wsServer] invalid loarMsg")
+      }
+    }
+    else if (addr == "deviceEvent") {
       let pi = Object.values(pis.getAvailablePis()).find(p => p.uuid == args.uuid)
       if (!pi) {
         const knownDevices = (appPaths.getFileObj(appPaths.getConf().knownDevicesFile) || {}) as DeviceDic
@@ -204,6 +217,9 @@ export function startMainServer(serverReadyCb) {
         wsServer.broadcastBut({ type: args.type, data: !!args.value }, ws);
 
       }
+      else if (args.type == 'startFullAgSync') {
+        startFullAgSync(!!args.value);
+      }
       else if (args.type === "isDNSActive") {
         dbg.log("activating DNS : ", !!args.value)
         setDNSActive(!!args.value)
@@ -221,6 +237,9 @@ export function startMainServer(serverReadyCb) {
         else if (args.value === "loraIsCheckingAgendas") {
           wsServer.sendTo(ws, { type: "loraIsCheckingAgendas", data: LoraModule.loraIsCheckingAgendas })
         }
+        else if (args.value === "deviceAreSyncedFromWifi") {
+          wsServer.sendTo(ws, { type: "deviceAreSyncedFromWifi", data: LoraModule.deviceAreSyncedFromWifi })
+        }
         else if (args.value === "loraIsDisablingWifi") {
           wsServer.sendTo(ws, { type: "loraIsDisablingWifi", data: LoraModule.loraIsDisablingWifi })
         }
@@ -230,6 +249,13 @@ export function startMainServer(serverReadyCb) {
         //   if (LoraModule.isSendingPing)
         //     LoraModule.sendOnePingMsg(); // will schedule nexts
         // }
+      else if (args.type === "loraIsCheckingAgendas") {
+        LoraModule.loraIsCheckingAgendas = !!args.value
+      }
+      else if (args.type === "deviceAreSyncedFromWifi") {
+        LoraModule.deviceAreSyncedFromWifi = !!args.value
+        if (LoraModule.deviceAreSyncedFromWifi) generateLoraFromWifi();
+      }
       else if (args.type === "loraIsSyncingAgendas") {
         LoraModule.loraIsSyncingAgendas = !!args.value
         if (LoraModule.loraIsSyncingAgendas)
@@ -237,21 +263,19 @@ export function startMainServer(serverReadyCb) {
         else
           LoraModule.stopAgendaSync()
       }
-      else if (args.type === "loraIsCheckingAgendas") {
-        LoraModule.loraIsCheckingAgendas = !!args.value
-      }
       else if (args.type === "loraIsDisablingWifi") {
         LoraModule.loraIsDisablingWifi = !!args.value
       }
         // per device
       else if (args.type === "activate") {
-        LoraModule.sendActivate(!!args.value?.isActive, LoraDeviceInstance.getUuid(args.value.device))
+        const uuidList = Object.values(args.value?.devices).map(LoraDeviceInstance.getUuid)
+        LoraModule.sendActivate(!!args.value?.isActive, uuidList)
       }
       else if (args.type === "keepPingingDevice") {
         LoraModule.setPingableState(LoraDeviceInstance.getUuid(args.value.device), !!args.value.shouldPing)
       }
       else {
-        dbg.error('[wsServer] unknown lora msg', args);
+        dbg.error('[wsServer] unknownn lora msg', args);
 
       }
 
@@ -277,6 +301,22 @@ export function startMainServer(serverReadyCb) {
     }
     else {
       dbg.error("msg from unknown pi", info.address, msg)
+    }
+  }
+
+  function startFullAgSync(b: boolean) {
+
+    checkAllEndpoints((serverSyncStatus) => {
+      wsServer.broadcast({ type: "serverSyncStatus", data: "[wifi] " + serverSyncStatus })
+    })
+    if (b) {
+
+      LoraModule.startAgendaSync((serverSyncStatus) => {
+        wsServer.broadcast({ type: "serverSyncStatus", data: "[lora] " + serverSyncStatus })
+      })
+    }
+    else {
+      LoraModule.stopAgendaSync();
     }
   }
 
@@ -432,8 +472,37 @@ export function startMainServer(serverReadyCb) {
     return isUpToDate;
   }
 
-  async function checkAllEndpoints() {
+  function generateLoraFromWifi() {
+    const appFilePaths = appPaths.getConf();
+    const knownDevices = (appPaths.getFileObj(appFilePaths.knownDevicesFile) || {}) as DeviceDic
+    if (!knownDevices) {
+      dbg.error("invalid known wifi device, abort trying to set lora")
+      return
+    }
+    const newLoras: LoraDeviceArray = []
+    dbg.warn("gen loras", Object.keys(knownDevices), knownDevices)
+    for (const [k, v] of Object.entries(knownDevices)) {
+      const uName = v.deviceName;
+      const num = parseInt(uName.replace("lumestrio", "").replace("relay", "").replace("_", ""))
+      const from = {
+        deviceType: uName.startsWith('lumestrio') ? LoraDeviceType.Lumestrio : LoraDeviceType.Relaystrio,
+        deviceNumber: num >>> 0,
+        deviceName: v.niceName,
+        group: v.group,
+      };
+      newLoras.push(LoraDeviceInstance.create(from))
+    }
+    const saved = appPaths.getFileObj(appFilePaths.knownLoraDevicesFile)
+    if (saved && JSON.stringify(saved) != JSON.stringify(newLoras)) {
+      appPaths.writeFileObj(appFilePaths.knownLoraDevicesFile, newLoras)
+      return true;
+    }
 
+  }
+
+  async function checkAllEndpoints(logProgress?) {
+    if (!logProgress) { logProgress = () => { } }
+    if (!(logProgress instanceof Function)) { dbg.error("invalid logProgress arg", logProgress); logProgress = () => { } }
     if (!fs.existsSync(appPaths.getConf().knownDevicesFile)) {
       dbg.warn('no file ')
       return
@@ -444,20 +513,42 @@ export function startMainServer(serverReadyCb) {
       return
     }
     dbg.log('>>>> checking all up to date')
+
+    logProgress("check wifi devices")
     let res;
+    const outDated = new Array<Device>()
     for (const c of getKnownPis()) {
       try {
+        logProgress("checking ", c)
         const isUpToDate = (await checkEndpointUpToDate(c)) == true
+        if (!isUpToDate) outDated.push(c)
         res ||= isUpToDate
       } catch (e) {
+        outDated.push(c)
         dbg.error("trying to update ep", e)
       }
     }
-    dbg.log('>>>> All checked all up to date')
+    if (outDated.length == 0) {
+      logProgress("tout les apareils wifi sont à jour")
+      dbg.log('>>>> All checked all up to date')
+    }
+    else {
+      const niceNames = outDated.map(d => d.niceName + "(" + d.uuid + ") ").join("\n")
+      logProgress("ces apareils n'ont pas pu etre mis à jour:" + niceNames)
+      dbg.log("some device haven't been synced :" + niceNames)
+    }
+
   }
   const checkAllEndpointsDbnc = _.debounce(checkAllEndpoints, 2000, {})
   var watcher = chokidar.watch(appPaths.getConf().baseDir, { ignored: /^\./, persistent: true });
-  watcher.on("change", (e) => { dbg.log("chg", e); checkAllEndpointsDbnc() });
+  watcher.on("change", (e) => {
+    dbg.log("chg", e);
+    let needCheck = true;
+    if (LoraModule.deviceAreSyncedFromWifi && e.endsWith("knownDevices.json")) {
+      needCheck = !generateLoraFromWifi()
+    }
+    if (needCheck) checkAllEndpointsDbnc()
+  });
   watcher.on("add", checkAllEndpointsDbnc);
   watcher.on("unlink", checkAllEndpointsDbnc);
   watcher.on("error", e => dbg.error("watch error", e));
@@ -483,7 +574,7 @@ export function startMainServer(serverReadyCb) {
         }
       }
       if (LoraModule.isMasterServer())
-        LoraModule.sendActivate(isInaugurationMode, 255);
+        LoraModule.sendActivate(isInaugurationMode, [255]);
     }
 
     // redundancyyyyyy

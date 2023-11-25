@@ -11,6 +11,7 @@ import * as appPaths from './filePaths'
 import https from 'https'
 import http from 'http'
 import * as  sys from './sysUtils';
+import { isAndroid } from './platformUtil';
 import * as dbg from './dbg'
 import expressStaticGzip from 'express-static-gzip'
 import * as uConf from './userConf'
@@ -45,10 +46,12 @@ export function startServer(cb) {
 
 const viewerHTMLBasePath = appPaths.getConf().viewerHTMLBasePath
 
-dbg.log(">>> static files served at ", viewerHTMLBasePath)
+if (!isAndroid) {
+  dbg.log(">>> not andr static files served at ", viewerHTMLBasePath)
 fs.readdirSync(viewerHTMLBasePath).forEach(file => {
   dbg.log("    ", file);
 });
+}
 
 
 app.use(express.static("./public/data", {
@@ -79,6 +82,7 @@ app.get('/knownDevices', (req, res) => {
 })
 
 
+
 app.post('/knownDevices', async (req, res) => {
   uConf.setRW(true);
   await fs.writeFile(appPaths.getConf().knownDevicesFile, JSON.stringify(req.body, null, 2), (err) => {
@@ -86,6 +90,7 @@ app.post('/knownDevices', async (req, res) => {
     dbg.log('The file has been saved!', req.body);
   })
   uConf.setRW(false);
+
   res.send()
 })
 
@@ -235,19 +240,20 @@ app.post('/state', async (req, res) => {
 })
 
 
+import LoraModule from './modules/LoraModule';
 LoraModule.initHttpEndpoints(app)
-
 
 
 /// serve Vue
 
 import history from 'connect-history-api-fallback'
 import { DeviceDic, Groups } from './types';
-import LoraModule from './modules/LoraModule';
+import { LoraDeviceArray, LoraDeviceInstance, LoraDeviceType } from './types/LoraDevice';
 app.use(history({}))
 
-
-app.use(expressStaticGzip(viewerHTMLBasePath, { serveStatic: { etag: false } }));
+if (!isAndroid) {
+  app.use(expressStaticGzip(viewerHTMLBasePath, { serveStatic: { etag: false } }));
+}
 // app.use(express.static(viewerHTMLBasePath, {
 //   etag: false
 // }))

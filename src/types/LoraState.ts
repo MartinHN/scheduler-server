@@ -112,7 +112,7 @@ function getStartOfYear(d: Date) {
 }
 export function dateToBuffer(d: Date) {
   const strToSend = dateToStr(d);
-  const buf = Buffer.from(strToSend);
+  const buf = Buffer.concat([Buffer.from(strToSend), Buffer.from([0])]);
   return buf
 }
 
@@ -137,7 +137,7 @@ export function readUntilNull(buffer, offset = 0) {
 
 export function strFromBuffer(b: Buffer, offset = 0): string {
   const { res, remaining } = readUntilNull(b, offset)
-  let str = b.toString('utf-8');
+  let str = res.toString('utf-8');
   str.trimEnd()
   if (str.length && str.charCodeAt(str.length - 1) == 0) {
     str = str.substring(0, str.length - 1);
@@ -172,8 +172,8 @@ export function getTypeOfMessage(b: Buffer): MessageType | undefined {
 }
 
 
-export const minDelayForResp = 400;
-export const minDelayForSend = 400;
+export const minDelayForResp = 500;
+export const minDelayForSend = 500;
 
 export function getNumInPing(intervalMs: number) {
   const intervalForResp = intervalMs - minDelayForSend - 400;

@@ -28,6 +28,7 @@ export type DeviceDic = { [id: string]: Device };
 export interface Group {
   name: string
   agendaFileName: string
+  loopTime: number
   devices: string[]
 }
 
@@ -37,5 +38,5 @@ export interface Groups {
 
 export function newEmptyGroup(name: string, fields?: any): Group {
   fields = fields || {}
-  return { name, devices: fields.devices || [], agendaFileName: fields.agendaFileName || 'default.json' }
+  return { name, devices: fields.devices || [], agendaFileName: fields.agendaFileName || 'default.json', loopTime: fields.loopTime || 0 }
 }

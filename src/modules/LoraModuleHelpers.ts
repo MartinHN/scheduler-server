@@ -3,14 +3,16 @@ import * as dbg from '../dbg'
 import ConfFileWatcher from '../ConfFileWatcher';
 import * as uConf from '../userConf'
 import * as sys from '../sysUtils'
-import { isPi } from '../platformUtil';
+import { isAndroid, isPi } from '../platformUtil';
 import * as appPaths from '../filePaths'
 import { exec, execSync } from 'child_process';
 import { LoraState, DefaultLoraState, validateLoraState } from '../types/LoraState';
-import unix from "unix-dgram"
+import wsClient from '../lib/wsCli'
 import fs from 'fs'
 import cobs from 'cobs'
 
+
+const useWSLoraProxy = !isPi
 export function execOnPiOnly(cmd) {
     dbg.log('[lora] cmd will run : ' + cmd)
     if (isPi) {
@@ -34,10 +36,40 @@ const clientSock = "/home/pi/e32.rx.data"
 const dataSock = "/run/e32.data"
 
 
-export function createSock(onMessage) {
+export async function createSock(onMessage) {
     // if (sock) { dbg.log("[loraSock]  force sock close"); sock.close(); sock = undefined }
+    if (useWSLoraProxy) {
+        dbg.warn('starting lora ws proxy');
+        wsClient.init((m) => {
 
+            if (m.addr != "loraMsg") {
+                dbg.warn("ignore lora ws message", m.addr, typeof m)
+                return;
+            }
+            if (!m.args) {
+                dbg.error("invalid lora ws message", m)
+                return;
+            }
+            // dbg.warn("got lora ws message", m)
+            if (m.args.type !== 'Buffer' || !m.args.data) {
+                dbg.error("invalid message from lora ws", m)
+                return
+            }
+            const buf = Buffer.from(m.args.data);
+            if (buf.length == 1) {
+                if (buf[0] != 0)
+                    dbg.error('[loraWebSock] got error', buf[0]);
+                return
+            }
+            onMessage(buf)
+        }, (isConnected) => {
+            dbg.warn('[loraWebSock] isConnected', isConnected)
+        })
+        return;
+    }
     let sock = {} as any;
+
+    const unix = (await import("unix-dgram")).default
     sock = unix.createSocket('unix_dgram', (buf) => {
         if (!sock.isRegisteredToe32) {
             dbg.log('[loraSock] registered ' + buf);
@@ -46,7 +78,7 @@ export function createSock(onMessage) {
         }
         if (buf.length == 1) {
             if (buf[0] != 0)
-                dbg.log('[loraSock] got error', buf[0]);
+                dbg.error('[loraSock] got error', buf[0]);
             return
         }
         onMessage(buf)
@@ -77,6 +109,7 @@ export function createSock(onMessage) {
     })
     sock.isRegisteredToe32 = false
     uConf.setRW(true)
+
     if (fs.existsSync(clientSock))
         fs.unlinkSync(clientSock)
     sock.bind(clientSock);
@@ -126,6 +159,9 @@ export function buildHexConfFromState(o: LoraState) {
     const SPED = 3
     const CHAN = 4
     const OPTION = 5
+
+
+
     b = setDecBits(b, SPED, 0, 3, o.speed)
     b = setDecBits(b, CHAN, 0, 6, o.channel)
     b = setBit(b, OPTION, 2, o.fec);
@@ -213,12 +249,17 @@ function readUntilNull(buffer, offset = 0) {
     return { res: buffer, remaining: Buffer.from([]) }; // Return original buffer if '\0' not found
 }
 
+
+let wsProxyCallback;
+export function setWsProxyCallback(cb: (b: Buffer) => void) {
+    wsProxyCallback = cb
+}
 export class LoraSockIface {
     // helper to manage socket lifetime and e32.service
     protected csock = undefined;
     // TODO, we could send hex to /run/e32.control and not restart the service
     setHexConf(hexStr) {
-        dbg.log("should set e32 bin conf to " + hexStr)
+        dbg.log("will set e32 bin conf to " + hexStr)
         if (hexStr.length != defaultHexConf.length)
             throw new Error("invalid lora config")
 
@@ -238,6 +279,10 @@ export class LoraSockIface {
     }
 
     sendBufToLora(buf: Buffer) {
+        if (useWSLoraProxy) {
+            wsClient.send(buf)
+            return;
+        }
         if (!this.csock) {
             throw Error("[lora] not created")
         }
@@ -260,20 +305,24 @@ export class LoraSockIface {
         uConf.setRW(false)
     }
 
-    setServiceRunning(b: boolean) {
+    async setServiceRunning(b: boolean) {
+
         // sysctlCmd(b ? 'start' : 'stop')
         if (b == !!this.csock) return
 
         if (b) {
             dbg.log('[lora] rebind sock ');
-            this.csock = createSock((buf) => {
+            this.csock = await createSock((buf) => {
                 while (buf && buf.length) {
                     if (buf.length && buf[buf.length - 1] != 0) {
                         dbg.error('discard buffer not ended with zero', buf)
                         break;
                     }
                     const { res, remaining } = readUntilNull(buf)
-                    dbg.warn("incoming lora msg size", res.length, "remaining", remaining.length)
+                    if (wsProxyCallback) {
+                        wsProxyCallback(Buffer.concat([res, Buffer.from([0])]));
+                    }
+                    // dbg.warn("incoming lora msg size", res.length, "remaining", remaining.length)
                     const decoded = cobs.decode(res);
                     this.processLoraMsg(decoded)
                     buf = remaining

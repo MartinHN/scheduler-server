@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { execSync, execFileSync } from "child_process"
-import { isPi, isOSX } from './platformUtil'
+import { isPi, isOSX, isAndroid } from './platformUtil'
 import * as uConf from './userConf'
 import * as dbg from './dbg'
 import conf from './config'
@@ -12,6 +12,8 @@ import os from 'os'
 export function getHostName() {
     if (isOSX)
         return execSync(`scutil --get LocalHostName`).toString();
+    else if (isAndroid)
+        return 'android'
     else
         return fs.readFileSync("/etc/hostname").toString().trim();
 }
@@ -20,6 +22,8 @@ export function getHostName() {
 export function getMountedSDCardName() {
     if (isOSX)
         return "L2"
+    else if (isAndroid)
+        return 'android'
     else {
         const l = execSync('ls -l /dev/disk/by-label/  | grep " -> ../../mmcblk0p2" | awk "END { print $9 }"').toString();
         return l;
@@ -45,7 +49,9 @@ export function setHostName(newhost: string) {
 }
 
 
+
 export function getMac() {
+    if (isAndroid) { return "Android123Yahouu" }
     // we will only use it as uuid so take the first available
     const ifs = os.networkInterfaces();
     let firstMac = undefined;
@@ -54,7 +60,7 @@ export function getMac() {
         if (curMac === undefined || !curMac.mac) continue;
         const isValidMac = curMac.mac.split(":").find(e => e != "00") !== undefined
         if (!isValidMac) continue;
-        dbg.warn(">>> mac", k, v, curMac, isValidMac)
+        // dbg.warn(">>> mac", k, v, curMac, isValidMac)
         if (k.startsWith("e") || firstMac === undefined)
         {
             firstMac = curMac;
@@ -75,6 +81,8 @@ export function getRSSI() {
             const l = execSync("/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | grep -E 'CtlRSSI'").toString();
             res = parseInt(l.split(":")[1]);
         }
+        else if (isAndroid)
+            return '118'
         else
             res = parseInt(execSync("cat /proc/net/wireless | awk 'END { print $4 }' | sed 's/\.$//'").toString())
         // res=parseInt( execSync('iwlist wlan0 scanning | grep  -Eo "....dBm"').toString());
@@ -89,6 +97,8 @@ export function getRSSI() {
 export function reboot() {
     if (isPi)
         execSync('sudo reboot')
+    else if (isAndroid)
+        return 'android'
     else
         dbg.warn("should reboot")
 }

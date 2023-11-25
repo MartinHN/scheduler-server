@@ -66,7 +66,7 @@ export function isRW() {
     return false
 }
 
-export const bootedInRW = isRW()
+export const bootedInRW = (!isPi || isRW())
 
 export function setRW(isRW) {
     if (bootedInRW) {

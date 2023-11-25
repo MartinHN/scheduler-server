@@ -1,7 +1,16 @@
+import { isAndroid } from '../platformUtil';
+import { execSync } from 'child_process';
 import * as os from 'os'
+
+
+function getAndroidCurIp() {
+    // execSync("ifconfig wlan0 | grep 'inet addr' | cut -d: -f2 | awk '{print $1}'").toString()
+    return "127.0.0.1"
+}
 
 export function getIpOfInterface(targetIf: string) {
     if (targetIf as string === "") return undefined
+    if (isAndroid) { return getAndroidCurIp() }
     const interfaces = os.networkInterfaces();
 
     for (const ifName of Object.keys(interfaces)) {
@@ -17,9 +26,8 @@ export function getIpOfInterface(targetIf: string) {
     return "";
 };
 
-
-
 export function getIPAddresses() {
+    if (isAndroid) { return [getAndroidCurIp()] }
     const interfaces = os.networkInterfaces();
     const ipAddresses = new Array();
 

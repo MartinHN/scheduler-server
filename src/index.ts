@@ -1,4 +1,5 @@
 import LoraModule from './modules/LoraModule';
+import { isAndroid } from './platformUtil';
 import * as sys from './sysUtils';
 import { dateToStr } from './types';
 
@@ -30,7 +31,7 @@ if (!lastEl.startsWith('-')) {
 }
 
 LoraModule.isEndpoint = startClient;
-LoraModule.isServer = isMainServer;
+LoraModule.isServer = isMainServer || isAndroid;
 
 
 
@@ -46,6 +47,7 @@ if (startClient) {
   import('./endpointServer').then(mod =>
   {
     shutDownFunctions.push(mod.cleanShutdown)
+    console.warn("endpoint startting with hostname ", endpointName)
     mod.startEndpointServer({ endpointName, endpointPort: targetPort })
   })
 
