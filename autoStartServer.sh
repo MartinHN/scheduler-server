@@ -1,3 +1,5 @@
+set -xe
+
 function do_for_sigint() {
     echo "signal interupted"
     sudo systemctl stop e32.service # avoid random locks (maybe)
