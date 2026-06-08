@@ -1,6 +1,6 @@
 import osc from 'osc';
 import * as dbg from '../dbg'
-const audioPlayerIp = "0.0.0.0"
+const audioPlayerIp = "127.0.0.1"
 const audioPlayerPort = 9009
 
 
@@ -16,6 +16,11 @@ class AudioPlayer {
             remoteAddress: audioPlayerIp,
             remotePort: audioPlayerPort// this.msgCb ? undefined : port
         });
+        this.udpPort.on("error", (e) => {
+            console.error("blablbalbalbal")
+            console.error(e)
+            throw e;
+        })
         this.udpPort.open();
 
     }

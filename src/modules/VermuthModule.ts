@@ -24,7 +24,7 @@ class VermuthModule {
                 localPort: 0,// 7777,//this.msgCb ? port : undefined,
                 // multicast,
                 // multicastMembership: membership,
-                remoteAddress: "0.0.0.0",
+                remoteAddress: "127.0.0.1",
                 remotePort: 11000// this.msgCb ? undefined : port
 
             });
